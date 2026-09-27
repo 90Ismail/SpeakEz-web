@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "SpeakEz",
+    "slug": "speakez",
+    "scheme": "speakez",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "dev.speakez.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "SpeakEz uses your location only while the app is open, to unlock voice notes left where you're standing."
+      }
+    },
+    "android": {
+      "package": "dev.speakez.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "blockedPermissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-audio",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SpeakEz uses your location only while the app is open, to unlock voice notes left where you're standing.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
+    ]
+  }
+}
