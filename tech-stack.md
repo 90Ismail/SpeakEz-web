@@ -8,10 +8,10 @@ Mobile-only app for anonymous, place-based voice notes at UMN. This file is the 
 | --- | --- | --- |
 | Mobile app | Expo (latest SDK) + React Native + TypeScript | One codebase for iOS and Android; runs in Expo Go for fast demos |
 | Navigation | expo-router | File-based screens: map, story, record, care |
-| Map | react-native-maps (Apple Maps on iOS, Google Maps on Android) | Free native maps; custom JSON style on Google matches the wireframes |
+| Map | react-native-maps (Apple Maps on iOS, Google Maps on Android) | Free native maps; custom JSON style on Google matches the wireframes. POIs stay visible but muted (businesses, schools, sports, medical, parks, attractions, Green Line); only clutter is hidden. Custom landmark layer in `src/campusLandmarks.ts` |
 | Location | expo-location, foreground only | "While Using the App" permission; no background tracking |
 | Audio in app | expo-audio | Record (m4a) and play back |
-| Fonts | Karla, Instrument Serif (Google Fonts, OFL) | Calm UI sans + editorial titles |
+| Fonts | Karla, Newsreader (Google Fonts, OFL) | Calm UI sans + editorial serif titles/transcript |
 | API | FastAPI (Python 3.12), Pydantic v2 | Same language as the NeMo worker; async; auto OpenAPI docs |
 | Database | PostgreSQL 16 + PostGIS | Distance and "within radius" queries for unlocking notes |
 | ORM / migrations | SQLAlchemy 2.0 (async) + GeoAlchemy2, Alembic | Versioned schema changes we control |
