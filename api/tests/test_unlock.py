@@ -16,6 +16,14 @@ def no_cache(monkeypatch):
     monkeypatch.setattr(unlock_service, "get_or_set", get_or_set)
 
 
+@pytest.fixture(autouse=True)
+def no_replies(monkeypatch):
+    async def live_replies(session, parent_id):
+        return []
+
+    monkeypatch.setattr(notes_repo, "live_replies", live_replies)
+
+
 def note_row(
     status="live",
     visibility="public",
@@ -94,3 +102,43 @@ async def test_unlock_never_opens_journal_entries(monkeypatch):
 
     with pytest.raises(unlock_service.NoteNotFound):
         await unlock_service.unlock_note(None, NOTE_ID, 44.97536, -93.2363)
+
+
+async def test_unlock_returns_thread_oldest_first(monkeypatch):
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+
+    patch_note(monkeypatch, note_row())
+    patch_distance(monkeypatch, True)
+    first = SimpleNamespace(
+        id=uuid.uuid4(), body="First reply.", audio_key=None, duration_sec=30,
+        created_at=datetime(2026, 9, 28, 3, 0, tzinfo=timezone.utc),
+    )
+    second = SimpleNamespace(
+        id=uuid.uuid4(), body="Second reply.", audio_key=None, duration_sec=20,
+        created_at=datetime(2026, 9, 28, 4, 0, tzinfo=timezone.utc),
+    )
+
+    async def live_replies(session, parent_id):
+        assert parent_id == NOTE_ID
+        return [first, second]
+
+    monkeypatch.setattr(notes_repo, "live_replies", live_replies)
+
+    result = await unlock_service.unlock_note(None, NOTE_ID, 44.97536, -93.2363)
+
+    assert [reply["body"] for reply in result["replies"]] == ["First reply.", "Second reply."]
+    assert result["body"] == "One.\n\nTwo."
+
+
+async def test_far_away_never_sees_the_thread(monkeypatch):
+    patch_note(monkeypatch, note_row())
+    patch_distance(monkeypatch, False)
+
+    async def live_replies(session, parent_id):
+        raise AssertionError("replies must not load before the distance check passes")
+
+    monkeypatch.setattr(notes_repo, "live_replies", live_replies)
+
+    with pytest.raises(unlock_service.TooFar):
+        await unlock_service.unlock_note(None, NOTE_ID, 45.0, -93.3)

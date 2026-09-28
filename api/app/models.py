@@ -51,6 +51,18 @@ class Landmark(Base):
     )
 
 
+class Prompt(Base):
+    """A daily question for the voice journal. Today's is picked by campus date."""
+
+    __tablename__ = "prompts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class Note(Base):
     __tablename__ = "notes"
 
@@ -65,6 +77,10 @@ class Note(Base):
     duration_sec: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'processing'"))
     visibility: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'public'"))
+    # An answer to a daily prompt. Always a journal entry (checked in the DB).
+    prompt_id: Mapped[int | None] = mapped_column(ForeignKey("prompts.id"))
+    # A voice reply to another note. Always public, never on the map on its own (checked in the DB).
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("notes.id", ondelete="CASCADE"))
     publish_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,6 +7,7 @@ from .. import storage
 from ..cache import get_or_set
 from ..config import get_settings
 from ..repositories import notes as notes_repo
+from .notes import day_label
 
 NOTE_CACHE_TTL_SECONDS = 300
 
@@ -50,8 +52,23 @@ async def unlock_note(
     if not near:
         raise TooFar
 
+    # Replies unlock with the post they answer: same place, same distance check. Not cached,
+    # so a new reply shows up on the next open.
+    now = datetime.now(timezone.utc)
+    replies = [
+        {
+            "id": reply.id,
+            "body": reply.body or "",
+            "audio_url": storage.signed_url(reply.audio_key) if reply.audio_key else None,
+            "duration_sec": reply.duration_sec,
+            "day_label": day_label(reply.created_at, now),
+        }
+        for reply in await notes_repo.live_replies(session, note_id)
+    ]
+
     return {
         "body": note["body"] or "",
         "words": note["words"],
         "audio_url": storage.signed_url(note["audio_key"]) if note["audio_key"] else None,
+        "replies": replies,
     }
