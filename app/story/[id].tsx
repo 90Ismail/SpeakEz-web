@@ -21,7 +21,7 @@ import { Waveform } from "../../src/components/Waveform";
 import { USE_GOOGLE_ON_IOS } from "../../src/config";
 import { formatDistanceUpper, haversineMeters, type LatLng } from "../../src/geo";
 import { googleMapStyle } from "../../src/mapStyle";
-import { formatClock, formatRate, useMockPlayer } from "../../src/Player";
+import { formatClock, formatRate, useNotePlayer } from "../../src/Player";
 import { REACTIONS, type ReactionType } from "../../src/reactions";
 import { SEED_NOTES, seedNoteById } from "../../src/seedNotes";
 import {
@@ -35,7 +35,7 @@ import {
   useTheme,
   useThemeMode,
 } from "../../src/theme";
-import { buildTimings, currentParagraphAt } from "../../src/transcript";
+import { buildWordTimings, currentParagraphAt, type WordTiming } from "../../src/transcript";
 
 const MAP_LATITUDE_DELTA = 0.006;
 const HEADER_HEIGHT = 252;
@@ -224,13 +224,14 @@ export default function StoryScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const player = useMockPlayer(durationSec);
   const [view, setView] = useState<"story" | "playing">("story");
   const [saved, setSaved] = useState(false);
   const [reaction, setReaction] = useState<ReactionType | null>(null);
   const [transcriptVisible, setTranscriptVisible] = useState(true);
   const [trackWidth, setTrackWidth] = useState(0);
   const [body, setBody] = useState<string[]>(note?.body ?? []);
+  const [words, setWords] = useState<WordTiming[]>([]);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [access, setAccess] = useState<"checking" | "unlocked" | "locked">(() => {
     if ((note?.body.length ?? 0) > 0) return "unlocked";
     if (!position || unlockedParam === "0") return "locked";
@@ -244,6 +245,8 @@ export default function StoryScreen() {
       .then((result) => {
         if (cancelled) return;
         setBody(result.body);
+        setWords(result.words);
+        setAudioUrl(result.audioUrl);
         setAccess("unlocked");
       })
       .catch(() => {
@@ -255,7 +258,11 @@ export default function StoryScreen() {
     };
   }, [access, note, position]);
 
-  const timings = useMemo(() => buildTimings(body, durationSec), [body, durationSec]);
+  const player = useNotePlayer(audioUrl, durationSec);
+  const timings = useMemo(
+    () => buildWordTimings(body, words, durationSec),
+    [body, words, durationSec],
+  );
   const next = useMemo(
     () => (note && landmark ? nearestOtherStory(note, landmark) : null),
     [note, landmark],
