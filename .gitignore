@@ -81,3 +81,5 @@ desktop.ini
 # ── Logs ────────────────────────────────────────────────
 *.log
 logs/
+# ── Generated public mirror of the judge landing page ───
+deploy/.public-landing/
