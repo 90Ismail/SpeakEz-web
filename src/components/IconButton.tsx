@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
-import { useTheme } from "../theme";
+import { pressed as pressedOpacity, shadow, useTheme } from "../theme";
 
-export type IconButtonVariant = "plain" | "tint" | "glass" | "solid";
+export type IconButtonVariant = "plain" | "tint" | "glass" | "surface" | "solid";
 export type IconButtonTone = "ink" | "accent" | "onAccent";
 
 type IconButtonProps = {
@@ -19,6 +19,11 @@ type IconButtonProps = {
   disabled?: boolean;
 };
 
+/**
+ * Round icon control. Variants: `plain` (no fill), `tint` (top bar buttons),
+ * `glass` (overlays on the story hero), `surface` (controls sitting on the map:
+ * surface fill, 1px line, control shadow) and `solid` (accent disc).
+ */
 export function IconButton({
   icon,
   onPress,
@@ -37,6 +42,7 @@ export function IconButton({
     plain: theme.surfaceClear,
     tint: theme.tint,
     glass: theme.glass,
+    surface: theme.surface,
     solid: theme.accent,
   };
   const color: Record<IconButtonTone, string> = {
@@ -59,9 +65,10 @@ export function IconButton({
           height: size,
           borderRadius: size / 2,
           backgroundColor: background[variant],
-          opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
+          opacity: disabled ? 0.4 : pressed ? pressedOpacity.dim : 1,
         },
         variant === "glass" && { borderWidth: StyleSheet.hairlineWidth, borderColor: theme.glassStroke },
+        variant === "surface" && [styles.surface, { borderColor: theme.line, shadowColor: theme.glassShadow }],
         style,
       ]}
     >
@@ -74,5 +81,9 @@ const styles = StyleSheet.create({
   base: {
     alignItems: "center",
     justifyContent: "center",
+  },
+  surface: {
+    borderWidth: 1,
+    ...shadow.control,
   },
 });

@@ -2,13 +2,12 @@ import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Circle } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Caps } from "../../src/components/Caps";
 import { OnboardingButton } from "../../src/components/OnboardingButton";
 import { OnboardingDots } from "../../src/components/OnboardingDots";
 import { OnboardingFade } from "../../src/components/OnboardingFade";
 import { OnboardingMap } from "../../src/components/OnboardingMap";
 import { CAMPUS_CENTER, DEFAULT_CAMERA, UNLOCK_RADIUS_M } from "../../src/config";
-import { fonts, space, type, useTheme } from "../../src/theme";
+import { pressed, space, textStyle, useTheme } from "../../src/theme";
 
 export default function WelcomeScreen() {
   const theme = useTheme();
@@ -31,9 +30,9 @@ export default function WelcomeScreen() {
         <OnboardingFade edge="bottom" height={130} />
       </View>
       <View style={[styles.content, { paddingBottom: insets.bottom + space.md }]}>
-        <Caps tone="accent" size={type.support} style={styles.eyebrow}>
-          SPEAKEZ · UMN TWIN CITIES
-        </Caps>
+        <Text accessibilityRole="header" style={[styles.wordmark, { color: theme.ink }]}>
+          speakez
+        </Text>
         <Text style={[styles.headline, { color: theme.ink }]}>
           Hear what campus doesn&apos;t say out loud.
         </Text>
@@ -47,7 +46,7 @@ export default function WelcomeScreen() {
             onPress={() => router.push("/(auth)/sign-in")}
             accessibilityRole="button"
             accessibilityLabel="Sign in"
-            style={({ pressed }) => [styles.signInRow, { opacity: pressed ? 0.6 : 1 }]}
+            style={({ pressed: isPressed }) => [styles.signInRow, { opacity: isPressed ? pressed.dim : 1 }]}
           >
             <Text style={[styles.signInLead, { color: theme.ink2 }]}>Been here before?</Text>
             <Text style={[styles.signInLink, { color: theme.ink }]}>Sign in</Text>
@@ -71,38 +70,36 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingTop: space.xs,
-    paddingHorizontal: 24,
-    gap: 16,
+    paddingHorizontal: space.gutter,
+    gap: space.md,
   },
-  eyebrow: {
-    letterSpacing: 1.8,
+  wordmark: {
+    ...textStyle.wordmark,
+    lineHeight: 32,
   },
   headline: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.display,
-    lineHeight: 35,
-    letterSpacing: -1 },
+    ...textStyle.displaySerif,
+  },
   body: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    lineHeight: 22.5 },
+    ...textStyle.body,
+  },
   footer: {
     marginTop: "auto",
     width: "100%",
     alignItems: "center",
-    gap: 16,
+    gap: space.md,
   },
   signInRow: {
     minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    gap: space.xs,
   },
   signInLead: {
-    fontFamily: fonts.sans,
-    fontSize: type.body },
+    ...textStyle.body,
+  },
   signInLink: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.body },
+    ...textStyle.bodyStrong,
+  },
 });

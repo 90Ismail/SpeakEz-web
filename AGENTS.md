@@ -26,7 +26,7 @@ Designs live in `SpeakEz.pen` (Pencil). Read them through the Pencil MCP: screen
 
 ## Hard rules
 
-1. **Anonymity:** never store raw GPS for a note; store `landmark_id` only. Never return an author ID to clients. Display dates at day level ("this evening"), never minutes.
+1. **Anonymity:** never store raw GPS for a note; store `landmark_id` only. A note is a **public post** (on the map, anonymous) or a **voice journal** entry (`visibility = 'journal'`: author only, no place required, never returned by `/map` or `/unlock`). Drafts are a status, not a visibility. Never return an author ID to clients. Display dates at day level ("this evening"), never minutes.
 2. **Sign-in:** OTP only for `@umn.edu` addresses, checked in the API. Store `email_hmac = HMAC-SHA256(lowercased email, EMAIL_PEPPER)`, never the email itself. OTP codes live in Redis with a 10-minute TTL and 5-attempt limit.
 3. **Unlock is server-checked:** `POST /notes/{id}/unlock` receives the client position, computes distance with PostGIS `ST_DWithin`, and only then returns body, words and a signed audio URL (60 s expiry, from `storage.signed_url`). Positions sent to `/unlock` are never logged or stored.
 4. **Safety before publish:** every transcript passes `api/safety/lexicon.v1.yaml` before a note goes live. Self-harm terms (`unalive`, `sewerslide`, `kms`, …) → status `held` and the app shows the care screen (988, Crisis Text Line, Boynton). Threat patterns → `blocked`. Never show "rejected" alone for self-harm.
@@ -47,10 +47,10 @@ app/                         Expo Router screens
   (auth)/sign-in.tsx         00c Onboarding — Verify: umn.edu email → 6-digit code
   index.tsx                  MapScreen (screen 01)
   story/[id].tsx             screen 03 Expanded Story (+ 04 playback inside)
-  record.tsx                 05 record → 06 choose place → 07 processing → 08 review draft → publish
-  profile.tsx                screen 09 Profile Drawer
-  saved.tsx                  screen 11 Saved Audio
-  my-posts.tsx               screen 12 My Posts
+  record.tsx                 05 record → 06 choose (public post / voice journal / draft) → 07 processing → 08 review → post or save
+  profile.tsx                screen 09 Profile Drawer (recently heard, help, settings, about)
+  saved.tsx                  screen 11 Saved (bottom-bar tab)
+  journal.tsx                screen 12 Journal (bottom-bar tab): public posts, voice journal, drafts
   care.tsx                   screen 10 Help & Resources (crisis resources)
   dev/theme-check.tsx        dev-only: every state in light + dark, raw-hex audit
 src/
@@ -92,7 +92,7 @@ docker-compose.yml
 .env.example
 ```
 
-## Data model (Alembic 0001)
+## Data model (Alembic 0001 + 0002 + 0003)
 
 ```sql
 create extension if not exists postgis;
@@ -107,8 +107,15 @@ create table notes (id uuid primary key, author_id uuid not null references acco
   landmark_id text not null references landmarks,
   title text, body text, words jsonb, audio_key text, duration_sec int,
   status text not null default 'processing',   -- processing|draft|held|blocked|live
+  -- 0002: visibility text not null default 'public' check (visibility in ('public','journal')),
+  --       landmark_id nullable, but required when visibility = 'public'
+  -- 0003: prompt_id int references prompts (answers must be visibility = 'journal'),
+  --       parent_id uuid references notes on delete cascade (replies must be visibility = 'public')
   publish_at timestamptz, created_at timestamptz default now(), seeded boolean default false);
-create index notes_live_idx on notes (landmark_id) where status = 'live';
+create index notes_live_idx on notes (landmark_id)
+  where status = 'live' and visibility = 'public' and parent_id is null;  -- 0002, 0003
+create index notes_replies_idx on notes (parent_id, created_at) where parent_id is not null and status = 'live';  -- 0003
+create table prompts (id serial primary key, text text unique not null, created_at timestamptz default now());  -- 0003
 create table reactions (note_id uuid references notes on delete cascade,
   account_id uuid references accounts,
   type text check (type in ('heard_you','same','strength','helped')),
@@ -124,12 +131,14 @@ create table moderation_log (id bigserial primary key, note_id uuid references n
 | POST | `/auth/start` | `{email}` → 204. Rejects non-umn.edu with 422. Rate limit 5/hour per email hash + per IP |
 | POST | `/auth/verify` | `{email, code, over18: true}` → `{access, refresh}` |
 | POST | `/auth/refresh` | refresh → new access |
-| GET | `/map?bbox=w,s,e,n` | Live notes in view: `id, title, landmark {id,name,lat,lng}, duration_sec, day_label`. **Cached in Redis 30 s per rounded bbox**; invalidated when a note goes live |
+| GET | `/map?bbox=w,s,e,n` | Live **public original posts** in view (never journal entries or replies), each with `reply_count`: `id, title, landmark {id,name,lat,lng}, duration_sec, day_label`. **Cached in Redis 30 s per rounded bbox**; invalidated when a note goes live |
 | POST | `/notes` | `{landmark_id, duration_sec}` multipart audio upload → `{note_id}`; file saved via `storage.save` |
 | POST | `/notes/{id}/submit` | Audio uploaded → enqueue `process_note` |
 | GET | `/notes/{id}/draft` | Author only: status, title, body, flags |
 | POST | `/notes/{id}/publish` | `{title?, removed_sentence_ids?}` → schedules `publish_at` |
-| POST | `/notes/{id}/unlock` | `{lat, lng}` → 403 if outside radius, else `{body, words, audio_url}` |
+| POST | `/notes/{id}/unlock` | `{lat, lng}` → 403 if outside radius, else `{body, words, audio_url, replies[]}`; replies oldest first, loaded only after the distance check |
+| GET | `/prompts/today` | Today's journal prompt `{id, text, date}`; same for everyone, rotates at campus midnight |
+| POST | `/notes/{id}/replies` | *(not built yet)* multipart voice reply; must pass the same unlock distance check, always public, never on the map alone |
 | POST | `/notes/{id}/reactions` | `{type}` |
 | GET | `/landmarks/nearest?lat&lng` | Used by record flow to pick the landmark; position not stored |
 | GET | `/health` | db + redis check |
@@ -164,7 +173,7 @@ DEMO_MODE=true
 ## Build order (stop and demo after each)
 
 0. **Scaffold.** `npx create-expo-app@latest . --template blank-typescript`, add expo-router and the packages in tech-stack.md. Don't overwrite the markdown files or SpeakEz.pen. In `app.json`: expo-location plugin with background location disabled on iOS and Android, `android.blockedPermissions: ["android.permission.ACCESS_BACKGROUND_LOCATION"]`, and a when-in-use message: "SpeakEz uses your location only while the app is open, to unlock voice notes left where you're standing."
-1. **Map screen (01) + Voice Card (02) from Pencil.** Real map (never an image of the design). Pins/chips/radius are Marker children and a Circle. Pin states: far = dot only; near = dot + white title chip; unlocked = green chip with "UNLOCKED · 90 M"; selected = dark chip. Header shows "NEAR {nearest landmark}" + "{N} voices within a short walk". Tapping a pin slides up the card; locked card shows a lock and "Walk X m closer to listen". Apply the POI policy through `src/mapStyle.ts` and draw `src/campusLandmarks.ts` above provider labels. Default camera frames both banks with the river between; `src/zones.ts` labels EAST / WEST BANK ZONE. `MapView mapPadding` keeps native attribution clear of header, nav and voice card. Foreground location via `watchPositionAsync`; handle denied and "Precise off". Demo mode: long-press logo toggles, long-press map sets fake position. Constants: `UNLOCK_RADIUS_M=150`, chip radius 450 m, "short walk" 400 m. Done when it runs in Expo Go on seed data.
+1. **Map screen (01) + Voice Card (02) from Pencil.** Real map (never an image of the design). Pins/chips/radius are Marker children and a Circle. Pin states: far = dot only; near = dot + white title chip; unlocked = green chip with "UNLOCKED · 90 M"; selected = dark chip. Header follows the map's centre: "NEAR DINKYTOWN" / "NEAR STADIUM VILLAGE" / "NEAR EAST BANK · UMN" / "NEAR WEST BANK · UMN" / "NEAR ST. PAUL CAMPUS · UMN" (areas in `src/zones.ts`, small neighbourhoods first) + "{N} voices nearby" for the notes in view. Tapping a pin slides up the card; locked card shows a lock and "Walk X m closer to listen". Apply the POI policy through `src/mapStyle.ts` and draw `src/campusLandmarks.ts` above provider labels. Default camera frames both banks with the river between; `src/zones.ts` labels EAST / WEST BANK ZONE. `MapView mapPadding` keeps native attribution clear of header, nav and voice card. Foreground location via `watchPositionAsync`; handle denied and "Precise off". Demo mode: long-press logo toggles, long-press map sets fake position. Constants: `UNLOCK_RADIUS_M=150`, chip radius 450 m, "short walk" 400 m. Done when it runs in Expo Go on seed data.
 2. **Backend skeleton.** `docker compose up`, Alembic 0001, `seed.py`, `/health`, `/map`. Done when `curl /map?bbox=...` returns the seeded notes.
 3. **App read path.** Replace the `NOTES` import with `/map`. Done when pins come from the API.
 4. **Unlock + Screen 03 Expanded Story.** `/unlock`, then the story screen: small map header with the pin, place eyebrow, title, "Anonymous student · Left at {place} · {day}", player row, transcript in paragraphs (serif body 19/27, `type-reading`). Locked → title only + "Walk closer to read and listen".
@@ -192,3 +201,11 @@ Where the docs and `SpeakEz.pen` disagree on visuals, the design wins.
 4. **Seed notes — the ~8 titles from the designs** (not 5), spread across East Bank (Walter Library, Northrop Mall, Coffman Union, Pillsbury Hall, The Knoll) and West Bank (Wilson Library, Carlson School, Rarig Center), marked seeded/early tester in `src/seedNotes.ts` and `seed.py`.
 5. **Campus zones — center + radius in `src/zones.ts`** until real polygons exist (see `zone_polygon` TODO in the data model). Zone renders as a soft shape with an EAST / WEST BANK ZONE label; 06 Choose Place suggests the nearest landmark inside the user's zone.
 6. **Attribution — native only.** No drawn attribution; `MapView mapPadding` keeps overlays clear of Apple's legal label and Google's logo.
+
+## Decisions (2026-09-28)
+
+7. **Bottom bar — five labelled tabs:** Map, Journal, Record (accent, center), Saved, Profile. Saved Audio and My Posts move out of the profile drawer; the drawer keeps only account items.
+8. **Three kinds of note, one vocabulary:** Public post / Voice journal / Draft. Names, one-line summaries and icons live in `src/noteKinds.ts`; 06 Choose Place and the Journal tab both read from it. Public posts pick "this spot" or "anywhere on campus" as a sub-choice.
+9. **Voice journal is a visibility, enforced by the API** (Alembic 0002), not just a UI label: journal notes are filtered out of `/map` and refused by `/unlock`.
+10. **Daily prompt is journal-only.** One prompt per campus day from the `prompts` table (`GET /prompts/today`); answers are `visibility = 'journal'` with `prompt_id`, enforced by a DB check. The Journal tab shows it first; the record flow skips Choose Place and saves to the journal.
+11. **Replies thread under the original post.** A reply is a public note with `parent_id`; it shares the parent's landmark, is excluded from `/map`, and comes back inside `/unlock` after the distance check. The four quiet reactions stay as they are, above the thread.

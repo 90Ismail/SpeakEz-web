@@ -1,29 +1,67 @@
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import MapView, { Circle, Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Circle, Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CAMPUS_LANDMARKS, landmarkById, type CampusLandmark } from "./campusLandmarks";
+import { fetchMapNotes, type MapBounds } from "./api";
 import { Caps } from "./components/Caps";
-import { FloatingNav } from "./components/FloatingNav";
+import { FloatingNav, NAV_HEIGHT } from "./components/FloatingNav";
 import { IconButton } from "./components/IconButton";
 import { MapControls } from "./components/MapControls";
-import { ProfileButton } from "./components/ProfileButton";
-import { DEFAULT_CAMERA, SHORT_WALK_M, UNLOCK_RADIUS_M, USE_GOOGLE_ON_IOS } from "./config";
+import { Wordmark } from "./components/Wordmark";
+import { DEFAULT_CAMERA, UNLOCK_RADIUS_M, USE_GOOGLE_ON_IOS } from "./config";
 import { setDemoEnabled, setFakePosition, useDemoState } from "./demo";
 import { haversineMeters, type LatLng } from "./geo";
 import { googleMapStyle } from "./mapStyle";
 import { CLUSTERS, NotePin, PinCluster, pinMarkerGeometry, pinStateFor, YouAreHere } from "./NotePins";
-import { SEED_NOTES, seedNoteById } from "./seedNotes";
-import { fonts, radius, space, type, useTheme, useThemeMode } from "./theme";
+import type { MapNote } from "./notes";
+import { fonts, radius, space, textStyle, type, useTheme, useThemeMode } from "./theme";
 import { VoiceCard } from "./VoiceCard";
-import { ZONES } from "./zones";
+import { areaAt, OUTSIDE_CAMPUS_LABEL, ZONES } from "./zones";
 
-const NAV_HEIGHT = 62;
 const TOP_FADE_OPACITIES = [1, 0.92, 0.8, 0.6, 0.4, 0.2];
-const MAP_PADDING = { top: 140, right: 8, bottom: 250, left: 8 };
-const FALLBACK_LANDMARK = "Northrop Mall";
+// Apple's legal label / Google's logo sit inside the bottom map padding. With no card open they
+// tuck into a thin strip just above the nav; with the voice card up they move above the card.
+const MAP_PADDING_SIDES = { top: 140, right: 8, left: 8 };
+const CARD_PADDING_BOTTOM = 250;
+const ATTRIBUTION_GAP = 4;
+const ATTRIBUTION_STRIP = 22;
+/** "3 voices nearby" for whatever the map is showing; never a bare "No voices". */
+function voicesLabel(count: number): string {
+  if (count === 0) return "Quiet here for now";
+  return `${count} ${count === 1 ? "voice" : "voices"} nearby`;
+}
+
+function labelFor(region: LatLng): string {
+  return areaAt(region)?.label ?? OUTSIDE_CAMPUS_LABEL;
+}
+
+function inBounds(point: LatLng, bounds: MapBounds): boolean {
+  return (
+    point.latitude >= bounds.south &&
+    point.latitude <= bounds.north &&
+    point.longitude >= bounds.west &&
+    point.longitude <= bounds.east
+  );
+}
+
+function boundsFromRegion(region: Region): MapBounds {
+  const halfLat = region.latitudeDelta / 2;
+  const halfLng = region.longitudeDelta / 2;
+  return {
+    west: Math.max(region.longitude - halfLng, -180),
+    south: Math.max(region.latitude - halfLat, -90),
+    east: Math.min(region.longitude + halfLng, 180),
+    north: Math.min(region.latitude + halfLat, 90),
+  };
+}
+
+/** Matches the API's ~200 m cache grid so panning within a cell does not refetch. */
+function boundsKey(bounds: MapBounds): string {
+  const snap = (value: number) => (Math.round(value / 0.002) * 0.002).toFixed(3);
+  return [bounds.west, bounds.south, bounds.east, bounds.north].map(snap).join(":");
+}
 
 export function MapScreen() {
   const theme = useTheme();
@@ -33,8 +71,36 @@ export function MapScreen() {
   const mapRef = useRef<MapView | null>(null);
   const demo = useDemoState();
   const [livePosition, setLivePosition] = useState<LatLng | null>(null);
+  const [notes, setNotes] = useState<MapNote[]>([]);
+  // The header follows the map's centre ("Near Dinkytown"), not the user's GPS.
+  const [areaLabel, setAreaLabel] = useState(() => labelFor(DEFAULT_CAMERA));
+  const [viewBounds, setViewBounds] = useState<MapBounds>(() => boundsFromRegion(DEFAULT_CAMERA));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const pinPressAt = useRef(0);
+  const requestSeq = useRef(0);
+  const lastBoundsKey = useRef("");
+
+  const loadNotes = useCallback((bounds: MapBounds) => {
+    const key = boundsKey(bounds);
+    if (key === lastBoundsKey.current) return;
+    lastBoundsKey.current = key;
+    const seq = requestSeq.current + 1;
+    requestSeq.current = seq;
+    fetchMapNotes(bounds)
+      .then((next) => {
+        if (seq === requestSeq.current) setNotes(next);
+      })
+      .catch(() => {
+        if (seq === requestSeq.current) setNotes([]);
+      });
+  }, []);
+
+  useEffect(() => {
+    loadNotes(boundsFromRegion(DEFAULT_CAMERA));
+    return () => {
+      requestSeq.current += 1;
+    };
+  }, [loadNotes]);
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
@@ -63,32 +129,24 @@ export function MapScreen() {
 
   const userPosition = demo.fakePosition ?? livePosition;
 
-  const nearestLandmark = useMemo(() => {
-    if (!userPosition) return undefined;
-    return CAMPUS_LANDMARKS.reduce<CampusLandmark | undefined>(
-      (nearest, landmark) =>
-        !nearest ||
-        haversineMeters(userPosition, landmark.coordinate) < haversineMeters(userPosition, nearest.coordinate)
-          ? landmark
-          : nearest,
-      undefined,
-    );
-  }, [userPosition]);
+  const voicesInView = useMemo(
+    () => notes.filter((note) => inBounds(note.coordinate, viewBounds)).length,
+    [notes, viewBounds],
+  );
 
-  const voicesNearby = useMemo(() => {
-    if (!userPosition) return SEED_NOTES.length;
-    return SEED_NOTES.filter((note) => {
-      const landmark = landmarkById(note.landmarkId);
-      return landmark ? haversineMeters(userPosition, landmark.coordinate) <= SHORT_WALK_M : false;
-    }).length;
-  }, [userPosition]);
-
-  const selectedNote = selectedId ? seedNoteById(selectedId) ?? null : null;
-  const selectedLandmark = selectedNote ? landmarkById(selectedNote.landmarkId) : undefined;
+  const selectedNote = selectedId ? notes.find((note) => note.id === selectedId) ?? null : null;
   const selectedDistance =
-    selectedLandmark && userPosition ? haversineMeters(userPosition, selectedLandmark.coordinate) : null;
+    selectedNote && userPosition ? haversineMeters(userPosition, selectedNote.coordinate) : null;
 
   const usesGoogle = Platform.OS === "android" || USE_GOOGLE_ON_IOS;
+  const navTop = insets.bottom + space.sm + NAV_HEIGHT;
+  const mapPadding = useMemo(
+    () => ({
+      ...MAP_PADDING_SIDES,
+      bottom: selectedNote ? CARD_PADDING_BOTTOM : navTop + ATTRIBUTION_GAP,
+    }),
+    [selectedNote, navTop],
+  );
 
   function handleSelect(noteId: string) {
     pinPressAt.current = Date.now();
@@ -110,9 +168,16 @@ export function MapScreen() {
         mapType={usesGoogle ? "standard" : "mutedStandard"}
         customMapStyle={usesGoogle ? googleMapStyle(mode) : undefined}
         showsPointsOfInterests={!usesGoogle}
-        mapPadding={MAP_PADDING}
+        mapPadding={mapPadding}
         onPress={handleMapPress}
         onLongPress={(event) => setFakePosition(event.nativeEvent.coordinate)}
+        onRegionChange={(region) => setAreaLabel(labelFor(region))}
+        onRegionChangeComplete={(region) => {
+          const bounds = boundsFromRegion(region);
+          setAreaLabel(labelFor(region));
+          setViewBounds(bounds);
+          loadNotes(bounds);
+        }}
       >
         {ZONES.map((zone) => (
           <Circle
@@ -138,16 +203,14 @@ export function MapScreen() {
             strokeWidth={1}
           />
         ) : null}
-        {SEED_NOTES.map((note) => {
-          const landmark = landmarkById(note.landmarkId);
-          if (!landmark) return null;
-          const distance = userPosition ? haversineMeters(userPosition, landmark.coordinate) : null;
+        {notes.map((note) => {
+          const distance = userPosition ? haversineMeters(userPosition, note.coordinate) : null;
           const geometry = pinMarkerGeometry(pinStateFor(distance));
           const selected = note.id === selectedId;
           return (
             <Marker
               key={note.id}
-              coordinate={landmark.coordinate}
+              coordinate={note.coordinate}
               anchor={geometry.anchor}
               centerOffset={geometry.centerOffset}
               zIndex={selected ? 2 : 1}
@@ -182,7 +245,7 @@ export function MapScreen() {
 
       <View style={[styles.top, { paddingTop: insets.top + space.sm }]} pointerEvents="box-none">
         <View style={styles.controlsRow} pointerEvents="box-none">
-          <ProfileButton />
+          <Wordmark />
           <MapControls />
         </View>
         {demo.enabled ? (
@@ -203,19 +266,19 @@ export function MapScreen() {
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             style={styles.eyebrow}
           >
-            <Caps tone="ink2" size={type.support}>
-              {`NEAR ${(nearestLandmark?.name ?? FALLBACK_LANDMARK).toUpperCase()}`}
-            </Caps>
+            <Text style={[styles.eyebrowText, { color: theme.ink2 }]}>
+              {areaLabel}
+            </Text>
           </Pressable>
           <View pointerEvents="none">
-            <Text style={[styles.headline, { color: theme.ink }]}>{`${voicesNearby} voices nearby`}</Text>
+            <Text style={[styles.headline, { color: theme.ink }]}>{voicesLabel(voicesInView)}</Text>
           </View>
         </View>
       </View>
 
       <IconButton
         icon="locate"
-        variant="glass"
+        variant="surface"
         accessibilityLabel="Recenter map"
         disabled={!userPosition}
         onPress={() => {
@@ -225,7 +288,7 @@ export function MapScreen() {
             400,
           );
         }}
-        style={[styles.recenter, { bottom: insets.bottom + space.sm + NAV_HEIGHT + space.md }]}
+        style={[styles.recenter, { bottom: navTop + ATTRIBUTION_GAP + ATTRIBUTION_STRIP + space.sm }]}
       />
 
       <View style={[styles.navWrap, { bottom: insets.bottom + space.sm }]} pointerEvents="box-none">
@@ -235,7 +298,21 @@ export function MapScreen() {
       <VoiceCard
         note={selectedNote}
         distance={selectedDistance}
-        onOpen={(note) => router.push(`/story/${note.id}`)}
+        onOpen={(note) =>
+          router.push({
+            pathname: "/story/[id]",
+            params: {
+              id: note.id,
+              title: note.title,
+              landmarkId: note.landmarkId,
+              durationSec: String(note.durationSec),
+              dayLabel: note.dayLabel,
+              ...(userPosition
+                ? { lat: String(userPosition.latitude), lng: String(userPosition.longitude) }
+                : {}),
+            },
+          })
+        }
       />
     </View>
   );
@@ -289,9 +366,12 @@ const styles = StyleSheet.create({
   eyebrow: {
     alignSelf: "flex-start",
   },
+  eyebrowText: {
+    ...textStyle.capsLarge,
+  },
   headline: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.title },
+    ...textStyle.titleSerif,
+  },
   recenter: {
     position: "absolute",
     right: space.gutter,

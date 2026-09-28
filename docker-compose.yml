@@ -1,0 +1,78 @@
+name: speakez
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: speakez
+      POSTGRES_PASSWORD: speakez
+      POSTGRES_DB: speakez
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U speakez -d speakez"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build: ./api
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://speakez:speakez@db:5432/speakez}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      MEDIA_DIR: ${MEDIA_DIR:-/app/media}
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      EMAIL_PEPPER: ${EMAIL_PEPPER:-change-me-too}
+      ALLOWED_EMAIL_DOMAIN: ${ALLOWED_EMAIL_DOMAIN:-umn.edu}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      UNLOCK_RADIUS_M: ${UNLOCK_RADIUS_M:-150}
+      DEMO_MODE: ${DEMO_MODE:-true}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app
+      - media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    # Repo root as context so the image can install the api package (worker/Dockerfile).
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    working_dir: /
+    command: arq worker.main.WorkerSettings
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://speakez:speakez@db:5432/speakez}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      MEDIA_DIR: ${MEDIA_DIR:-/app/media}
+      # The api settings the worker imports refuse default secrets outside demo mode.
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      EMAIL_PEPPER: ${EMAIL_PEPPER:-change-me-too}
+      DEMO_MODE: ${DEMO_MODE:-true}
+    volumes:
+      - ./worker:/worker
+      - media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  media:

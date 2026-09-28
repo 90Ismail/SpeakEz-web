@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 
 const ALLOWED = new Set(["src/theme.ts", "src/mapStyle.ts"]);
@@ -7,7 +7,7 @@ const HEX = /#[0-9A-Fa-f]{3,8}\b/g;
 const files = execSync("git ls-files", { encoding: "utf8" })
   .split("\n")
   .map((line) => line.trim())
-  .filter((file) => /\.(ts|tsx|js|jsx|mjs)$/.test(file) && !ALLOWED.has(file));
+  .filter((file) => /\.(ts|tsx|js|jsx|mjs)$/.test(file) && !ALLOWED.has(file) && existsSync(file));
 
 const findings = [];
 for (const file of files) {

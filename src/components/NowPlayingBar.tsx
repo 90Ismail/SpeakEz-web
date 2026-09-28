@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View, type DimensionValue, type StyleProp, type ViewStyle } from "react-native";
-import { fonts, radius, type, useTheme } from "../theme";
+import { pressed as pressedOpacity, radius, shadow, textStyle, useTheme } from "../theme";
 
 type NowPlayingBarProps = {
   title: string;
@@ -12,6 +12,7 @@ type NowPlayingBarProps = {
   style?: StyleProp<ViewStyle>;
 };
 
+/** Now Playing bar from the design: surface fill, 1px line, control shadow. */
 export function NowPlayingBar({ title, timeLabel, progress, playing, onPress, onToggle, style }: NowPlayingBarProps) {
   const theme = useTheme();
   const clamped = Math.min(Math.max(progress, 0), 1);
@@ -25,10 +26,10 @@ export function NowPlayingBar({ title, timeLabel, progress, playing, onPress, on
       style={({ pressed }) => [
         styles.bar,
         {
-          backgroundColor: theme.glassStrong,
-          borderColor: theme.glassStroke,
+          backgroundColor: theme.surface,
+          borderColor: theme.line,
           shadowColor: theme.glassShadow,
-          opacity: pressed ? 0.92 : 1,
+          opacity: pressed ? pressedOpacity.soft : 1,
         },
         style,
       ]}
@@ -37,7 +38,10 @@ export function NowPlayingBar({ title, timeLabel, progress, playing, onPress, on
         onPress={onToggle}
         accessibilityRole="button"
         accessibilityLabel={playing ? "Pause" : "Play"}
-        style={[styles.toggle, { backgroundColor: theme.accent }]}
+        style={({ pressed }) => [
+          styles.toggle,
+          { backgroundColor: theme.accent, opacity: pressed ? pressedOpacity.dim : 1 },
+        ]}
       >
         <Ionicons name={playing ? "pause" : "play"} size={17} color={theme.onAccent} />
       </Pressable>
@@ -60,14 +64,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     height: 56,
     borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     padding: 6,
     paddingRight: 16,
     gap: 12,
-    shadowOpacity: 1,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    ...shadow.control,
   },
   toggle: {
     width: 44,
@@ -81,8 +82,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.support },
+    ...textStyle.supportStrong,
+    lineHeight: 17,
+  },
   track: {
     height: 3,
     borderRadius: 2,
@@ -93,6 +95,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   time: {
-    fontFamily: fonts.sans,
-    fontSize: type.meta },
+    ...textStyle.meta,
+  },
 });

@@ -7,9 +7,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { fonts, radius, space, type, useTheme } from "../theme";
-import { Caps } from "./Caps";
-import { RecordTopBar } from "./RecordTopBar";
+import type { NoteKind } from "../noteKinds";
+import { pressed as pressedOpacity, radius, space, textStyle, useTheme } from "../theme";
+import { TopBar } from "./TopBar";
 
 export type ReviewSentence = {
   id: string;
@@ -40,6 +40,11 @@ type RecordReviewStageProps = {
   onDiscard: () => void;
   onPublish: () => void;
   onKeepDraft: () => void;
+  /** Journal notes save privately; drafts only offer "keep"; public notes are left at a place. */
+  onSaveJournal: () => void;
+  kind: NoteKind;
+  /** A voice reply: always public, at the original post's place, no draft option. */
+  isReply?: boolean;
   topInset: number;
   bottomInset: number;
 };
@@ -66,26 +71,35 @@ export function RecordReviewStage({
   onDiscard,
   onPublish,
   onKeepDraft,
+  onSaveJournal,
+  kind,
+  isReply = false,
   topInset,
   bottomInset,
 }: RecordReviewStageProps) {
   const theme = useTheme();
+  const primary: { label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void } =
+    isReply
+      ? { label: `Post reply at ${landmarkName}`, icon: "chatbubble-outline", onPress: onPublish }
+      : kind === "public"
+      ? { label: `Post at ${landmarkName}`, icon: "location-outline", onPress: onPublish }
+      : kind === "journal"
+        ? { label: "Save to journal", icon: "lock-closed-outline", onPress: onSaveJournal }
+        : { label: "Save as draft", icon: "ellipse-outline", onPress: onKeepDraft };
   const paragraphColor = { ink: theme.ink, ink2: theme.ink2 };
 
   return (
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
       <View style={{ paddingTop: topInset }}>
-        <RecordTopBar
+        <TopBar
           title="Read it back"
-          leadingIcon="arrow-back"
-          leadingLabel="Back to choosing a place"
-          onLeadingPress={onBack}
+          leading={{ icon: "arrow-back", label: "Back to choosing a place", onPress: onBack }}
           trailing={
             <Pressable
               onPress={onDiscard}
               accessibilityRole="button"
               accessibilityLabel="Discard this note"
-              style={styles.discard}
+              style={({ pressed }) => [styles.discard, { opacity: pressed ? pressedOpacity.dim : 1 }]}
             >
               <Text style={[styles.discardLabel, { color: theme.danger }]}>Discard</Text>
             </Pressable>
@@ -94,11 +108,11 @@ export function RecordReviewStage({
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Caps tone="accent" style={styles.location}>
-          {`${landmarkName.toUpperCase()}  ·  ${locationSuffix}`}
-        </Caps>
+        <Text style={[styles.location, { color: theme.accentText }]}>
+          {kind === "public" ? `${landmarkName.toUpperCase()}  ·  ${locationSuffix}` : locationSuffix}
+        </Text>
 
-        <View style={[styles.titleField, { borderBottomColor: theme.ink }]}>
+        <View style={[styles.titleField, { borderBottomColor: theme.line }]}>
           <TextInput
             value={title}
             onChangeText={onChangeTitle}
@@ -113,26 +127,37 @@ export function RecordReviewStage({
         </View>
 
         <View style={styles.suggestions}>
-          <Caps tone="ink3">OTHER TITLES WE HEARD</Caps>
+          <Text style={[styles.sectionLabel, { color: theme.ink2 }]}>Other titles we heard</Text>
           <View style={styles.chips}>
-            {suggestions.map((suggestion) => (
-              <Pressable
-                key={suggestion}
-                onPress={() => onSuggestion(suggestion)}
-                accessibilityRole="button"
-                accessibilityLabel={`Use title: ${suggestion}`}
-                style={({ pressed }) => [
-                  styles.chip,
-                  { borderColor: theme.controlLine, opacity: pressed ? 0.7 : 1 },
-                ]}
-              >
-                <Text style={[styles.chipLabel, { color: theme.ink }]}>{suggestion}</Text>
-              </Pressable>
-            ))}
+            {suggestions.map((suggestion) => {
+              const selected = suggestion === title;
+              return (
+                <Pressable
+                  key={suggestion}
+                  onPress={() => onSuggestion(suggestion)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`Use title: ${suggestion}`}
+                  style={({ pressed }) => [
+                    styles.chip,
+                    selected
+                      ? { borderColor: theme.accent, backgroundColor: theme.accentSoft }
+                      : {
+                          borderColor: theme.controlLine,
+                          backgroundColor: pressed ? theme.tint : theme.surfaceClear,
+                        },
+                  ]}
+                >
+                  <Text style={[styles.chipLabel, { color: selected ? theme.accentText : theme.ink }]}>
+                    {suggestion}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
-        <View style={styles.audio}>
+        <View style={[styles.audio, { borderTopColor: theme.line, borderBottomColor: theme.line }]}>
           <Pressable
             onPress={onTogglePlayback}
             accessibilityRole="button"
@@ -140,7 +165,7 @@ export function RecordReviewStage({
             hitSlop={5}
             style={({ pressed }) => [
               styles.playButton,
-              { backgroundColor: theme.ink, opacity: pressed ? 0.8 : 1 },
+              { backgroundColor: theme.ink, opacity: pressed ? pressedOpacity.dim : 1 },
             ]}
           >
             <Ionicons name={playing ? "pause" : "play"} size={13} color={theme.surface} />
@@ -151,12 +176,12 @@ export function RecordReviewStage({
               {`Pitch-shifted  ·  ${clock(durationSec)}`}
             </Text>
           </View>
-          <Ionicons name="shield-checkmark-outline" size={18} color={theme.ink2} />
+          <Ionicons name="shield-checkmark-outline" size={18} color={theme.ink3} />
         </View>
 
         <View style={styles.transcript}>
           <View style={styles.transcriptHead}>
-            <Caps tone="ink3">TRANSCRIPT</Caps>
+            <Text style={[styles.sectionLabel, { color: theme.ink2 }]}>Transcript</Text>
             <Text style={[styles.editText, { color: theme.ink }]}>Edit text</Text>
           </View>
 
@@ -197,7 +222,7 @@ export function RecordReviewStage({
               </Text>
               {paragraph.kind === "redaction" ? (
                 <View style={styles.redactionNote}>
-                  <Ionicons name="eye-off-outline" size={13} color={theme.accent} />
+                  <Ionicons name="eye-off-outline" size={13} color={theme.accentText} />
                   <Text style={[styles.redactionLabel, { color: theme.accentText }]}>
                     We removed a name to keep you anonymous.
                   </Text>
@@ -215,27 +240,27 @@ export function RecordReviewStage({
         ]}
       >
         <Pressable
-          onPress={onPublish}
+          onPress={primary.onPress}
           accessibilityRole="button"
-          accessibilityLabel={`Leave it at ${landmarkName}`}
+          accessibilityLabel={primary.label}
           style={({ pressed }) => [
             styles.publish,
-            { backgroundColor: theme.ink, opacity: pressed ? 0.85 : 1 },
+            { backgroundColor: theme.ink, opacity: pressed ? pressedOpacity.soft : 1 },
           ]}
         >
-          <Ionicons name="location" size={15} color={theme.surface} />
-          <Text style={[styles.publishLabel, { color: theme.surface }]}>
-            Leave it at {landmarkName}
-          </Text>
+          <Ionicons name={primary.icon} size={16} color={theme.surface} />
+          <Text style={[styles.publishLabel, { color: theme.surface }]}>{primary.label}</Text>
         </Pressable>
-        <Pressable
-          onPress={onKeepDraft}
-          accessibilityRole="button"
-          accessibilityLabel="Keep as a private draft"
-          style={styles.draft}
-        >
-          <Text style={[styles.draftLabel, { color: theme.ink2 }]}>Keep as a private draft</Text>
-        </Pressable>
+        {kind === "draft" || isReply ? null : (
+          <Pressable
+            onPress={onKeepDraft}
+            accessibilityRole="button"
+            accessibilityLabel="Save as a draft instead"
+            style={({ pressed }) => [styles.draft, { opacity: pressed ? pressedOpacity.dim : 1 }]}
+          >
+            <Text style={[styles.draftLabel, { color: theme.ink2 }]}>Save as a draft instead</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -252,30 +277,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   discardLabel: {
-    fontFamily: fonts.sansSemibold,
-    fontSize: type.support },
+    ...textStyle.supportStrong,
+  },
   content: {
     paddingTop: space.md,
     paddingHorizontal: space.gutter,
     paddingBottom: space.lg,
   },
   location: {
-    letterSpacing: 1.4,
+    ...textStyle.caps,
   },
   titleField: {
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingTop: space.sm,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   titleInput: {
     flex: 1,
     padding: 0,
-    fontFamily: fonts.sansBold,
-    fontSize: type.title,
-    lineHeight: type.title * 1.1,
-    letterSpacing: -0.7 },
+    ...textStyle.titleSerif,
+  },
+  sectionLabel: {
+    ...textStyle.supportStrong,
+  },
   suggestions: {
     gap: space.sm,
     paddingTop: 12,
@@ -288,22 +315,22 @@ const styles = StyleSheet.create({
   },
   chip: {
     height: 44,
-    paddingHorizontal: 13,
-    paddingVertical: space.sm,
+    paddingHorizontal: 14,
     borderRadius: radius.md,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   chipLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontStyle: "italic" },
+    ...textStyle.chipSerif,
+  },
   audio: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   playButton: {
     width: 34,
@@ -317,11 +344,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   audioTitle: {
-    fontFamily: fonts.sans,
-    fontSize: type.body },
+    ...textStyle.body,
+  },
   audioSub: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
   transcript: {
     gap: space.md,
     paddingTop: space.lg,
@@ -333,17 +360,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   editText: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
   paragraph: {
-    fontFamily: fonts.serif,
-    fontSize: type.reading,
-    lineHeight: 27 },
+    ...textStyle.reading,
+  },
   redaction: {
     gap: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: radius.xs,
+    padding: 16,
+    borderRadius: radius.md,
   },
   redactionNote: {
     flexDirection: "row",
@@ -352,8 +377,8 @@ const styles = StyleSheet.create({
   },
   redactionLabel: {
     flex: 1,
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
   actions: {
     gap: 14,
     paddingTop: space.sm,
@@ -361,21 +386,21 @@ const styles = StyleSheet.create({
   },
   publish: {
     height: 52,
-    borderRadius: 26,
+    borderRadius: radius.pill,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: space.sm,
   },
   publishLabel: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.body },
+    ...textStyle.bodyStrong,
+  },
   draft: {
     minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
   },
   draftLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
 });

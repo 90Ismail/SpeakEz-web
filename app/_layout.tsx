@@ -2,6 +2,7 @@ import { Karla_400Regular, Karla_500Medium, Karla_600SemiBold, Karla_700Bold } f
 import {
   Newsreader_400Regular,
   Newsreader_500Medium,
+  Newsreader_500Medium_Italic,
   Newsreader_600SemiBold,
   Newsreader_700Bold,
 } from "@expo-google-fonts/newsreader";
@@ -19,6 +20,9 @@ export default function RootLayout() {
     Karla_700Bold,
     Newsreader_400Regular,
     Newsreader_500Medium,
+    Newsreader_500Medium_Italic,
+    Newsreader_600SemiBold,
+    Newsreader_700Bold,
   });
   const theme = useTheme();
   const mode = useThemeMode();
@@ -34,7 +38,17 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: theme.bg },
           animation: "fade",
         }}
-      />
+      >
+        <Stack.Screen name="story/[id]" options={{ gestureEnabled: false }} />
+        <Stack.Screen
+          name="profile"
+          options={{
+            presentation: "transparentModal",
+            animation: "none",
+            contentStyle: { backgroundColor: "transparent" },
+          }}
+        />
+      </Stack>
     </SafeAreaProvider>
   );
 }

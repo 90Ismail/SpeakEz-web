@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
-import { fonts, radius, type, useTheme } from "../theme";
+import { pressed, radius, space, textStyle, useTheme } from "../theme";
 
 type OnboardingButtonProps = {
   label: string;
@@ -12,6 +12,7 @@ type OnboardingButtonProps = {
   style?: StyleProp<ViewStyle>;
 };
 
+/** Primary pill from the design: ink fill, 52 high, sans bold label in surface. */
 export function OnboardingButton({
   label,
   onPress,
@@ -30,9 +31,9 @@ export function OnboardingButton({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: Boolean(disabled) }}
-      style={({ pressed }) => [
+      style={({ pressed: isPressed }) => [
         styles.primary,
-        { backgroundColor: theme.ink, opacity: disabled ? 0.35 : pressed ? 0.85 : 1 },
+        { backgroundColor: theme.ink, opacity: disabled ? 0.35 : isPressed ? pressed.soft : 1 },
         style,
       ]}
     >
@@ -67,7 +68,7 @@ export function OnboardingTextButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
-      style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.6 : 1 }, style]}
+      style={({ pressed: isPressed }) => [styles.textButton, { opacity: isPressed ? pressed.dim : 1 }, style]}
     >
       <Text style={[styles.textButtonLabel, { color: colors[tone] }]}>{label}</Text>
     </Pressable>
@@ -79,15 +80,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: space.sm,
     height: 52,
-    paddingHorizontal: 24,
+    paddingHorizontal: space.gutter,
     borderRadius: radius.pill,
     width: "100%",
   },
   primaryLabel: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.body },
+    ...textStyle.bodyStrong,
+  },
   textButton: {
     minHeight: 44,
     alignItems: "center",
@@ -95,6 +96,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   textButtonLabel: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.body },
+    ...textStyle.bodyStrong,
+  },
 });

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { fonts, space, type, useTheme } from "../theme";
+import { pressed as pressedOpacity, radius, space, textStyle, useTheme } from "../theme";
 
 export type RecordPrimaryMode = "record" | "stop" | "continue";
 
@@ -16,6 +16,8 @@ type RecordControlsProps = {
   primaryDisabled?: boolean;
   primaryLabel: string;
 };
+
+const DISABLED_OPACITY = 0.4;
 
 export function RecordControls({
   primaryMode,
@@ -52,7 +54,8 @@ export function RecordControls({
             styles.smallButton,
             {
               borderColor: theme.controlLine,
-              opacity: restartDisabled ? 0.4 : pressed ? 0.7 : 1,
+              backgroundColor: theme.surfaceClear,
+              opacity: restartDisabled ? DISABLED_OPACITY : pressed ? pressedOpacity.dim : 1,
             },
           ]}
         >
@@ -73,17 +76,19 @@ export function RecordControls({
           accessibilityState={{ disabled: primaryDisabled }}
           style={({ pressed }) => [
             styles.ring,
-            { borderColor: theme.accent, opacity: primaryDisabled ? 0.4 : pressed ? 0.75 : 1 },
+            {
+              borderColor: theme.accent,
+              backgroundColor: theme.surfaceClear,
+              opacity: primaryDisabled ? DISABLED_OPACITY : pressed ? pressedOpacity.dim : 1,
+            },
           ]}
         >
           {primaryMode === "stop" ? (
             <View style={[styles.stopSquare, { backgroundColor: theme.accent }]} />
           ) : null}
-          {primaryMode === "record" ? (
-            <View style={[styles.recordDot, { backgroundColor: theme.accent }]} />
-          ) : null}
+          {primaryMode === "record" ? <Ionicons name="mic" size={28} color={theme.accent} /> : null}
           {primaryMode === "continue" ? (
-            <View style={[styles.recordDot, styles.continueDot, { backgroundColor: theme.accent }]}>
+            <View style={[styles.continueDisc, { backgroundColor: theme.accent }]}>
               <Ionicons name="arrow-forward" size={16} color={theme.onAccent} />
             </View>
           ) : null}
@@ -105,7 +110,8 @@ export function RecordControls({
             styles.smallButton,
             {
               borderColor: theme.controlLine,
-              opacity: doneDisabled ? 0.4 : pressed ? 0.7 : 1,
+              backgroundColor: theme.surfaceClear,
+              opacity: doneDisabled ? DISABLED_OPACITY : pressed ? pressedOpacity.dim : 1,
             },
           ]}
         >
@@ -140,25 +146,23 @@ const styles = StyleSheet.create({
     width: 78,
     height: 78,
     borderRadius: 39,
-    borderWidth: 1.5,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
-  recordDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-  },
-  continueDot: {
+  continueDisc: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
   stopSquare: {
-    width: 24,
-    height: 24,
-    borderRadius: 5,
+    width: 28,
+    height: 28,
+    borderRadius: radius.sm,
   },
   label: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
 });

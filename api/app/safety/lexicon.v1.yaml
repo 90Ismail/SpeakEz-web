@@ -1,0 +1,194 @@
+# SpeakEz safety lexicon, version 1.
+#
+# Checked by app/services/safety.py against every transcript before a note can go live.
+#   threat    -> note status "blocked"
+#   self_harm -> note status "held" (the author sees the care screen: 988, Crisis Text Line, Boynton)
+#   no match  -> note status "draft"
+# Threats are checked first, so a transcript that matches both is blocked.
+#
+# Each entry has a unique `label` (stored in moderation_log so a decision can be traced) and
+# either `terms`, `patterns`, or both:
+#   terms     plain phrases. Written naturally ("don't", "k-m-s"); they go through the same
+#             normalization as transcripts, and each letter tolerates stretching ("kmsss").
+#   patterns  regular expressions matched against the normalized transcript: lowercase a-z, 0-9,
+#             single spaces, apostrophes removed, and "|" where the speaker ended a clause (. , ; ! ?).
+#             {name} expands to the `vocab` list of that name.
+# Every term and pattern only matches whole words.
+#
+# Changing what this file catches? Copy it to lexicon.v2.yaml, bump `version`, and point
+# safety.py at the new file, so moderation_log rows stay traceable to the rules that made them.
+
+version: 1
+
+vocab:
+  # Who a threat is aimed at.
+  person:
+    - you
+    - him
+    - her
+    - them
+    - everyone
+    - everybody
+    - all of you
+    - all of them
+    - people
+    - someone
+    - somebody
+    - my roommate
+    - my professor
+    - my ta
+    - my ex
+  # Places on campus a threat can name.
+  place:
+    - campus
+    - school
+    - the school
+    - the university
+    - the u
+    - class
+    - my class
+    - the class
+    - the lecture
+    - the dorm
+    - the dorms
+    - my dorm
+    - the library
+    - the stadium
+    - the arena
+    - the union
+    - walter
+    - walter library
+    - wilson
+    - wilson library
+    - coffman
+    - coffman union
+    - northrop
+    - pillsbury hall
+    - the knoll
+    - carlson
+    - rarig
+    - williams arena
+    - huntington bank stadium
+    - the rec
+    - the rec center
+    - the light rail
+    - the green line
+  # Intent phrasing that turns a verb into a threat.
+  intent:
+    - going to
+    - gonna
+    - gunna
+    - will
+    - ill
+    - im going to
+    - im gonna
+    - about to
+    - want to
+    - wanna
+    - plan to
+    - planning to
+
+self_harm:
+  - label: self_harm.unalive
+    terms:
+      - unalive
+      - unalive myself
+      - unaliving
+      - unalived
+      - un alive myself
+  - label: self_harm.sewerslide
+    terms:
+      - sewerslide
+      - sewer slide
+      - sewer-slide
+  - label: self_harm.suicide
+    terms:
+      - suicide
+      - suicidal
+      - commit suicide
+      - su1c1de
+  - label: self_harm.kms
+    # "kms" but not "5 kms" (kilometers).
+    patterns:
+      - '(?<![0-9] )k+m+s+'
+  - label: self_harm.kill_myself
+    terms:
+      - kill myself
+      - killing myself
+      - kill my self
+      - off myself
+      - neck myself
+      - yeet myself off
+      - take my own life
+      - take my life
+  - label: self_harm.end_it
+    terms:
+      - end it all
+      - end my life
+      - ending my life
+      - end myself
+      - ending it all
+      - end things for good
+  - label: self_harm.not_be_here
+    terms:
+      - don't want to be here anymore
+      - do not want to be here anymore
+      - don't wanna be here anymore
+      - don't want to exist
+      - don't want to exist anymore
+      - don't want to wake up
+      - wish i wasn't alive
+      - wish i was dead
+      - wish i were dead
+      - better off dead
+      - better off without me
+      - no reason to live
+      - nothing to live for
+      - can't go on anymore
+  - label: self_harm.want_to_die
+    terms:
+      - want to die
+      - wanna die
+      - i want to die
+      - ready to die
+      - going to die tonight
+  - label: self_harm.self_injury
+    terms:
+      - self harm
+      - self-harm
+      - cut myself
+      - cutting myself
+      - hurt myself
+      - hurting myself
+      - slit my wrists
+      - overdose
+      - jump off the bridge
+      - jump off the washington avenue bridge
+      - jump off a bridge
+
+threat:
+  - label: threat.kill_person
+    # "I'm gonna kill him", but not "I don't want to hurt anyone" or "this exam will kill me".
+    patterns:
+      - '(?<!dont )(?<!not )(?<!never )(?:{intent}) (?:kill|shoot|stab|murder|hurt|beat up|jump) (?:{person})'
+  - label: threat.attack_place
+    patterns:
+      - '(?:{intent}) (?:shoot up|shooting up|bomb|blow up|attack|burn down|shoot) (?:{place})'
+      - '(?:shoot|shooting|shoot up|shooting up|bomb|blow up) (?:{place}) (?:up )?(?:tomorrow|tonight|today|on monday|on tuesday|on wednesday|on thursday|on friday|next week)'
+      - '(?:bring|bringing|brought) (?:a|my) (?:gun|rifle|knife|bomb) (?:to|into) (?:{place})'
+      - '(?:bomb|bombs|explosive|explosives) (?:in|at|on|under) (?:{place})'
+  - label: threat.mass_violence
+    terms:
+      - school shooting
+      - shoot everyone
+      - kill everyone
+      - kill them all
+      - kill you all
+      - mass shooting
+  - label: threat.kys
+    # Telling someone else to kill themselves. Aimed at others, so it is blocked, not held.
+    terms:
+      - kys
+      - kill yourself
+      - go die
+      - unalive yourself

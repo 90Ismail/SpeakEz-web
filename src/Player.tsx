@@ -1,6 +1,7 @@
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { useCallback, useEffect, useState } from "react";
 
-export type MockPlayer = {
+export type StoryPlayer = {
   playing: boolean;
   currentTime: number;
   duration: number;
@@ -22,10 +23,16 @@ export function formatRate(rate: number): string {
   return `${rate}×`;
 }
 
-// TODO(real audio): seeds have no audio files, so playback is a mock clock.
-// When a note carries a signed audio_url from /unlock, swap this for an
-// expo-audio player that keeps the same MockPlayer shape.
-export function useMockPlayer(durationSec: number): MockPlayer {
+const RATES = [1, 1.5, 2] as const;
+
+function nextRate(rate: number): number {
+  const index = RATES.indexOf(rate as (typeof RATES)[number]);
+  return RATES[(index + 1) % RATES.length];
+}
+
+// Seeds have no audio files yet, so playback is a mock clock. When a note
+// carries a signed audio_url from /unlock, the expo-audio path takes over.
+export function useMockPlayer(durationSec: number): StoryPlayer {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [rate, setRate] = useState(1);
@@ -62,8 +69,88 @@ export function useMockPlayer(durationSec: number): MockPlayer {
   );
 
   const cycleRate = useCallback(() => {
-    setRate((value) => (value === 1 ? 1.5 : value === 1.5 ? 2 : 1));
+    setRate(nextRate);
   }, []);
 
   return { playing, currentTime, duration: durationSec, rate, toggle, seekTo, skip, cycleRate };
+}
+
+/** Real playback through expo-audio when the note has a signed audio URL, else the mock clock. */
+export function useNotePlayer(source: string | null, durationSec: number): StoryPlayer {
+  // downloadFirst caches the file right after /unlock, so playback and seeking
+  // never depend on the 60 s signed URL still being valid.
+  const audio = useAudioPlayer(source ? { uri: source } : null, {
+    updateInterval: 250,
+    downloadFirst: true,
+  });
+  const status = useAudioPlayerStatus(audio);
+  const mock = useMockPlayer(source ? 0 : durationSec);
+  const [rate, setRate] = useState(1);
+
+  useEffect(() => {
+    if (!source) return;
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+  }, [source]);
+
+  const toggle = useCallback(() => {
+    if (!source) {
+      mock.toggle();
+      return;
+    }
+    if (audio.playing) {
+      audio.pause();
+      return;
+    }
+    if (status.didJustFinish || audio.currentTime >= (audio.duration || durationSec) - 0.05) {
+      void audio.seekTo(0).then(() => audio.play());
+      return;
+    }
+    audio.play();
+  }, [source, audio, mock, status.didJustFinish, durationSec]);
+
+  const seekTo = useCallback(
+    (seconds: number) => {
+      if (!source) {
+        mock.seekTo(seconds);
+        return;
+      }
+      void audio.seekTo(Math.min(Math.max(seconds, 0), audio.duration || durationSec));
+    },
+    [source, audio, mock, durationSec],
+  );
+
+  const skip = useCallback(
+    (deltaSeconds: number) => {
+      if (!source) {
+        mock.skip(deltaSeconds);
+        return;
+      }
+      const total = audio.duration || durationSec;
+      void audio.seekTo(Math.min(Math.max(audio.currentTime + deltaSeconds, 0), total));
+    },
+    [source, audio, mock, durationSec],
+  );
+
+  const cycleRate = useCallback(() => {
+    if (!source) {
+      mock.cycleRate();
+      return;
+    }
+    const next = nextRate(rate);
+    audio.setPlaybackRate(next);
+    setRate(next);
+  }, [source, audio, mock, rate]);
+
+  if (!source) return mock;
+
+  return {
+    playing: status.playing,
+    currentTime: status.currentTime,
+    duration: status.duration > 0 ? status.duration : durationSec,
+    rate,
+    toggle,
+    seekTo,
+    skip,
+    cycleRate,
+  };
 }

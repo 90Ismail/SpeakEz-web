@@ -1,21 +1,26 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
-import { landmarkById } from "./campusLandmarks";
-import { Caps } from "./components/Caps";
 import { Waveform } from "./components/Waveform";
 import { UNLOCK_RADIUS_M } from "./config";
 import { formatDistance } from "./geo";
-import type { SeedNote } from "./seedNotes";
-import { fonts, lineHeight, motion, radius, type, useTheme } from "./theme";
+import type { MapNote } from "./notes";
+import {
+  motion,
+  pressed as pressedOpacity,
+  radius,
+  shadow,
+  textStyle,
+  useReducedMotion,
+  useTheme,
+} from "./theme";
 
 const CARD_HEIGHT = 460;
-const FADE_OPACITIES = [0.2, 0.45, 0.7, 0.9];
 
 type VoiceCardProps = {
-  note: SeedNote | null;
+  note: MapNote | null;
   distance: number | null;
-  onOpen: (note: SeedNote) => void;
+  onOpen: (note: MapNote) => void;
 };
 
 function seedFromId(id: string): number {
@@ -34,15 +39,17 @@ function formatDuration(seconds: number): string {
 
 export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
   const theme = useTheme();
-  const [rendered, setRendered] = useState<SeedNote | null>(null);
+  const reduced = useReducedMotion();
+  const [rendered, setRendered] = useState<MapNote | null>(null);
   const translateY = useRef(new Animated.Value(CARD_HEIGHT)).current;
 
   useEffect(() => {
+    const duration = reduced ? 0 : motion.settle;
     if (note) {
       setRendered(note);
       Animated.timing(translateY, {
         toValue: 0,
-        duration: motion.settle,
+        duration,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
@@ -51,17 +58,16 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
     if (!rendered) return;
     Animated.timing(translateY, {
       toValue: CARD_HEIGHT,
-      duration: motion.settle,
+      duration,
       easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished) setRendered(null);
     });
-  }, [note, rendered, translateY]);
+  }, [note, rendered, translateY, reduced]);
 
   if (!rendered) return null;
 
-  const landmark = landmarkById(rendered.landmarkId);
   const unlocked = distance !== null && distance <= UNLOCK_RADIUS_M;
   const minutes = Math.round(rendered.durationSec / 60);
   const lockedMessage =
@@ -85,9 +91,7 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
         onPress={unlocked ? () => onOpen(rendered) : undefined}
         accessibilityRole={unlocked ? "button" : "text"}
         accessibilityLabel={
-          unlocked
-            ? `Open story: ${rendered.title} · ${landmark?.name ?? ""}`
-            : `${rendered.title}, locked`
+          unlocked ? `Open story: ${rendered.title} · ${rendered.landmarkName}` : `${rendered.title}, locked`
         }
         accessibilityHint={unlocked ? undefined : lockedMessage}
         style={styles.content}
@@ -98,9 +102,9 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
 
         <View style={styles.locationRow}>
           <Ionicons name="location" size={12} color={theme.accentText} />
-          <Caps tone="accent" size={type.meta}>
-            {(landmark?.name ?? "University of Minnesota").toUpperCase()}
-          </Caps>
+          <Text numberOfLines={1} style={[styles.location, { color: theme.accentText }]}>
+            {rendered.landmarkName.toUpperCase()}
+          </Text>
           {distance !== null ? (
             <Text style={[styles.distance, { color: theme.ink3 }]}>
               {`·  ${formatDistance(distance)} from you`}
@@ -113,7 +117,11 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
         {unlocked ? (
           <>
             <Text style={[styles.meta, { color: theme.ink3 }]}>
-              {`Anonymous student  ·  ${minutes} min listen  ·  Left ${rendered.dayLabel}`}
+              {`Anonymous student  ·  ${minutes} min listen  ·  Left ${rendered.dayLabel}${
+                (rendered.replyCount ?? 0) > 0
+                  ? `  ·  ${rendered.replyCount} ${rendered.replyCount === 1 ? "reply" : "replies"}`
+                  : ""
+              }`}
             </Text>
 
             <View style={styles.player}>
@@ -123,7 +131,7 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
                 accessibilityLabel={`Play ${rendered.title}`}
                 style={({ pressed }) => [
                   styles.playButton,
-                  { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 },
+                  { backgroundColor: theme.accent, opacity: pressed ? pressedOpacity.dim : 1 },
                 ]}
               >
                 <Ionicons name="play" size={17} color={theme.onAccent} />
@@ -132,20 +140,6 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
               <Text style={[styles.duration, { color: theme.ink2 }]}>
                 {`0:00 / ${formatDuration(rendered.durationSec)}`}
               </Text>
-            </View>
-
-            <View style={styles.excerpt}>
-              <Text
-                numberOfLines={3}
-                style={[styles.excerptText, { color: theme.ink2 }]}
-              >
-                {rendered.body.join("\n\n")}
-              </Text>
-              <View pointerEvents="none" style={styles.excerptFade}>
-                {FADE_OPACITIES.map((opacity, index) => (
-                  <View key={index} style={{ flex: 1, backgroundColor: theme.surface, opacity }} />
-                ))}
-              </View>
             </View>
           </>
         ) : (
@@ -172,10 +166,7 @@ const styles = StyleSheet.create({
     paddingRight: 24,
     paddingBottom: 34,
     paddingLeft: 24,
-    shadowOpacity: 1,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 12,
+    ...shadow.sheet,
   },
   content: {
     gap: 6,
@@ -195,15 +186,19 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingBottom: 2,
   },
+  location: {
+    ...textStyle.caps,
+    flexShrink: 1,
+  },
   distance: {
-    fontFamily: fonts.sans,
-    fontSize: type.meta },
+    ...textStyle.meta,
+  },
   title: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.title },
+    ...textStyle.titleSerif,
+  },
   meta: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
   player: {
     flexDirection: "row",
     alignItems: "center",
@@ -221,21 +216,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   duration: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
-  excerpt: {
-    paddingTop: 14,
-  },
-  excerptText: {
-    fontFamily: fonts.serif,
-    fontSize: type.reading,
-    lineHeight: lineHeight.reading },
-  excerptFade: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 28,
+    ...textStyle.support,
   },
   lockedRow: {
     flexDirection: "row",
@@ -243,6 +224,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   lockedText: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
 });

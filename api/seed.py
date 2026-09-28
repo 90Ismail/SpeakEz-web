@@ -1,0 +1,325 @@
+"""Seed campus landmarks and the demo notes.
+
+Run inside the api container: `docker compose exec api python seed.py`.
+Landmarks mirror src/campusLandmarks.ts; notes mirror src/seedNotes.ts.
+"""
+
+import asyncio
+import hashlib
+import hmac
+import json
+import math
+import uuid
+from datetime import datetime, time, timedelta, timezone
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+from geoalchemy2.elements import WKTElement
+from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert
+
+from app import storage
+from app.cache import close_redis, invalidate
+from app.config import get_settings
+from app.db import SessionLocal, engine
+from app.models import Account, Landmark, Note, Prompt
+
+SEED_AUDIO_DIR = Path(__file__).resolve().parent / "seed_audio"
+
+DISPLAY_TZ = ZoneInfo(get_settings().display_timezone)
+
+# Stable ID for the synthetic "early tester" author of the seeded notes.
+SEED_AUTHOR_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
+SEED_NOTES_NAMESPACE = uuid.UUID("6f3a1a6e-6c1f-4f2e-9a2c-8f1b3d5c7e90")
+
+LANDMARKS = [
+    {"id": "walter-library", "name": "Walter Library", "zone": "east", "lat": 44.97536, "lng": -93.2363},
+    {"id": "northrop-mall", "name": "Northrop Mall", "zone": "east", "lat": 44.97479, "lng": -93.23531},
+    {"id": "coffman-union", "name": "Coffman Union", "zone": "east", "lat": 44.97282, "lng": -93.23535},
+    {"id": "pillsbury-hall", "name": "Pillsbury Hall", "zone": "east", "lat": 44.9769, "lng": -93.23444},
+    {"id": "the-knoll", "name": "The Knoll", "zone": "east", "lat": 44.97862, "lng": -93.2365},
+    {"id": "superblock", "name": "Superblock", "zone": "east", "lat": 44.9749, "lng": -93.2325},
+    {"id": "scholars-walk", "name": "Scholars Walk", "zone": "east", "lat": 44.97437, "lng": -93.23694},
+    {"id": "washington-ave-bridge", "name": "Washington Ave Bridge", "zone": "east", "lat": 44.97306, "lng": -93.23991},
+    {"id": "wilson-library", "name": "Wilson Library", "zone": "west", "lat": 44.97095, "lng": -93.24359},
+    {"id": "carlson-school", "name": "Carlson School", "zone": "west", "lat": 44.97046, "lng": -93.24477},
+    {"id": "rarig-center", "name": "Rarig Center", "zone": "west", "lat": 44.97046, "lng": -93.24246},
+    {"id": "blegen-hall", "name": "Blegen Hall", "zone": "west", "lat": 44.97184, "lng": -93.24334},
+]
+
+# days_ago/hour/minute shape created_at so the API's day label matches src/seedNotes.ts
+# ("this evening", "last night", "yesterday", ...).
+# Daily voice journal prompts. Answers are journal-only; the API rotates one per campus day.
+PROMPTS = [
+    "What's something you haven't said out loud yet?",
+    "Where on campus do you feel most like yourself?",
+    "What did today ask of you?",
+    "Who do you wish knew how you're really doing?",
+    "What's a small thing that went right this week?",
+    "What are you carrying that isn't yours to carry?",
+    "What would you tell yourself from the first week of school?",
+    "What are you looking forward to, even a little?",
+    "When did you last feel proud of yourself?",
+    "What do you need more of right now?",
+    "What's been on your mind on the walk to class?",
+    "What would make tomorrow a bit easier?",
+]
+
+# Voice replies under seeded posts: the original stays first at the place, replies thread under it.
+SEED_REPLIES = [
+    {
+        "slug": "reply-walter-1",
+        "parent": "tired-at-walter",
+        "at": (0, 23, 40),
+        "duration_sec": 38,
+        "body": "Same floor, same flickering lights. I'm usually by the east windows. You're not the only one still here.",
+    },
+    {
+        "slug": "reply-walter-2",
+        "parent": "tired-at-walter",
+        "at": (0, 23, 58),
+        "duration_sec": 27,
+        "body": "Go home and sleep if you can. The work will still be there, and you'll be kinder to it tomorrow.",
+    },
+    {
+        "slug": "reply-failing-1",
+        "parent": "failing-first-semester",
+        "at": (0, 9, 15),
+        "duration_sec": 45,
+        "body": "I failed my first chem midterm and ended the semester with a B. Office hours changed everything for me. One bad start isn't the whole story.",
+    },
+]
+
+SEED_NOTES = [
+    {
+        "slug": "tired-at-walter",
+        "title": "I don't think anyone knows how tired I am",
+        "landmark_id": "walter-library",
+        "duration_sec": 134,
+        "at": (0, 19, 30),
+        "body": [
+            "I didn't really know where else to say this, so I'm saying it here — on the steps outside Walter, where I've basically lived for the last three weeks.",
+            "Everyone keeps telling me I'm doing great. My advisor, my friends, my parents on the phone on Sundays. And I nod, and I say thanks, and then I come back here and sit with my laptop until the lights upstairs flicker off.",
+            "It's not that anything terrible happened. It's more like everything is quietly asking for a little more than I have left.",
+            "I think I just wanted one person to know. Not to fix it. Just to know that someone was sitting here tonight, tired, and still trying.",
+            "If you're hearing this nearby — I hope your night is gentler than mine was.",
+        ],
+    },
+    {
+        "slug": "failing-first-semester",
+        "title": "I think I'm failing my first semester",
+        "landmark_id": "northrop-mall",
+        "duration_sec": 98,
+        "at": (1, 23, 0),
+        "body": [
+            "I got my first exam back today and it was worse than I let anyone believe.",
+            "I keep telling myself it's just one class, but it's the way everyone nods when I say it that gets to me.",
+        ],
+    },
+    {
+        "slug": "strangely-peaceful",
+        "title": "Tonight felt strangely peaceful",
+        "landmark_id": "the-knoll",
+        "duration_sec": 76,
+        "at": (0, 20, 15),
+        "body": [
+            "I walked up here after my shift and the whole hill was quiet.",
+            "For once I wasn't thinking about everything due tomorrow. I just watched the lights come on across the river.",
+        ],
+    },
+    {
+        "slug": "roommate",
+        "title": "I don't know how to tell my roommate",
+        "landmark_id": "coffman-union",
+        "duration_sec": 152,
+        "at": (1, 15, 0),
+        "body": [
+            "Something happened over winter break and I haven't told anyone here yet.",
+            "She's my best friend. That's exactly why I can't figure out how to say it.",
+        ],
+    },
+    {
+        "slug": "nowhere-else",
+        "title": "I didn't know where else to say this",
+        "landmark_id": "wilson-library",
+        "duration_sec": 111,
+        "at": (0, 17, 45),
+        "body": [
+            "I come to the west bank to study because nobody looks for me here.",
+            "Some things you can't put in a group chat. So here it is instead.",
+        ],
+    },
+    {
+        "slug": "cant-sleep",
+        "title": "I walk here when I can't sleep",
+        "landmark_id": "pillsbury-hall",
+        "duration_sec": 87,
+        "at": (1, 2, 0),
+        "body": [
+            "It was 2 a.m. and the whole mall was empty.",
+            "I walked past Pillsbury Hall three times before I realized I wasn't going back to bed.",
+        ],
+    },
+    {
+        "slug": "figured-out",
+        "title": "Everyone here seems to have it figured out",
+        "landmark_id": "carlson-school",
+        "duration_sec": 124,
+        "at": (0, 13, 30),
+        "body": [
+            "Group projects are the worst for this. Everyone has a plan and a spreadsheet and a fall internship already.",
+            "I just keep nodding and hoping nobody notices I'm guessing.",
+        ],
+    },
+    {
+        "slug": "organic-chem",
+        "title": "My first A in organic chemistry",
+        "landmark_id": "blegen-hall",
+        "duration_sec": 95,
+        "at": (0, 9, 15),
+        "body": [
+            "I studied for this exam at every bus stop I've ever missed a bus at.",
+            "It's one grade. But it's the first time this year I felt like I belong here.",
+        ],
+    },
+]
+
+
+def load_seed_media(slug: str) -> tuple[str | None, list[dict] | None, int | None]:
+    """Copy generated speech into the media volume and load its word timings, when present."""
+    audio_file = SEED_AUDIO_DIR / f"{slug}.mp3"
+    words_file = SEED_AUDIO_DIR / f"{slug}.words.json"
+    if not audio_file.is_file():
+        return None, None, None
+    audio_key = f"audios/{slug}.mp3"
+    storage.save(audio_key, audio_file.read_bytes())
+    words = json.loads(words_file.read_text(encoding="utf-8")) if words_file.is_file() else None
+    duration = int(math.ceil(words[-1]["end"] + 0.5)) if words else None
+    return audio_key, words, duration
+
+
+def created_at_for(days_ago: int, hour: int, minute: int, now: datetime) -> datetime:
+    """Local (campus) wall-clock time → UTC.
+
+    Notes are pinned to the day they're seeded on so their day labels match
+    src/seedNotes.ts; re-run this script on demo day.
+    """
+    local_now = now.astimezone(DISPLAY_TZ)
+    target_date = (local_now - timedelta(days=days_ago)).date()
+    local = datetime.combine(target_date, time(hour, minute), tzinfo=DISPLAY_TZ)
+    return local.astimezone(timezone.utc)
+
+
+async def seed() -> None:
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+
+    async with SessionLocal() as session:
+        landmark_rows = [
+            {
+                "id": landmark["id"],
+                "name": landmark["name"],
+                "zone": landmark["zone"],
+                "geom": WKTElement(f"POINT({landmark['lng']} {landmark['lat']})", srid=4326),
+            }
+            for landmark in LANDMARKS
+        ]
+        landmark_stmt = insert(Landmark).values(landmark_rows)
+        landmark_stmt = landmark_stmt.on_conflict_do_update(
+            index_elements=[Landmark.id],
+            set_={
+                "name": landmark_stmt.excluded.name,
+                "zone": landmark_stmt.excluded.zone,
+                "geom": landmark_stmt.excluded.geom,
+            },
+        )
+        await session.execute(landmark_stmt)
+
+        email_hmac = hmac.new(
+            settings.email_pepper.encode(), b"early-tester@umn.edu", hashlib.sha256
+        ).digest()
+        existing_author = await session.scalar(
+            select(Account.id).where(Account.email_hmac == email_hmac)
+        )
+        author_id = existing_author or SEED_AUTHOR_ID
+        if existing_author is None:
+            session.add(Account(id=author_id, email_hmac=email_hmac))
+
+        await session.execute(delete(Note).where(Note.seeded.is_(True)))
+
+        for entry in SEED_NOTES:
+            days_ago, hour, minute = entry["at"]
+            created_at = created_at_for(days_ago, hour, minute, now)
+            audio_key, words, audio_duration = load_seed_media(entry["slug"])
+            session.add(
+                Note(
+                    id=uuid.uuid5(SEED_NOTES_NAMESPACE, entry["slug"]),
+                    author_id=author_id,
+                    landmark_id=entry["landmark_id"],
+                    title=entry["title"],
+                    body="\n\n".join(entry["body"]),
+                    words=words,
+                    audio_key=audio_key,
+                    duration_sec=audio_duration or entry["duration_sec"],
+                    status="live",
+                    visibility="public",
+                    publish_at=created_at,
+                    created_at=created_at,
+                    seeded=True,
+                )
+            )
+
+        for text in PROMPTS:
+            await session.execute(insert(Prompt).values(text=text).on_conflict_do_nothing(index_elements=["text"]))
+        await session.flush()
+
+        for reply in SEED_REPLIES:
+            days_ago, hour, minute = reply["at"]
+            created_at = created_at_for(days_ago, hour, minute, now)
+            parent = next(entry for entry in SEED_NOTES if entry["slug"] == reply["parent"])
+            session.add(
+                Note(
+                    id=uuid.uuid5(SEED_NOTES_NAMESPACE, reply["slug"]),
+                    author_id=author_id,
+                    parent_id=uuid.uuid5(SEED_NOTES_NAMESPACE, reply["parent"]),
+                    landmark_id=parent["landmark_id"],
+                    body=reply["body"],
+                    duration_sec=reply["duration_sec"],
+                    status="live",
+                    visibility="public",
+                    publish_at=created_at,
+                    created_at=created_at,
+                    seeded=True,
+                )
+            )
+
+        # One private voice journal entry: no place, never on the map, never unlockable.
+        session.add(
+            Note(
+                id=uuid.uuid5(SEED_NOTES_NAMESPACE, "journal-not-ready"),
+                author_id=author_id,
+                landmark_id=None,
+                title="Things I'm not ready to say yet",
+                body="I just needed to say this out loud once.",
+                duration_sec=108,
+                status="live",
+                visibility="journal",
+                created_at=created_at_for(7, 23, 10, now),
+                seeded=True,
+            )
+        )
+
+        await session.commit()
+
+    await invalidate("map:")
+    await invalidate("note:")
+    await close_redis()
+    await engine.dispose()
+    print(
+        f"seeded {len(LANDMARKS)} landmarks, {len(SEED_NOTES)} public notes, "
+        f"{len(SEED_REPLIES)} replies, 1 journal entry and {len(PROMPTS)} prompts"
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(seed())

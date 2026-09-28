@@ -4,12 +4,13 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { landmarkById } from "../src/campusLandmarks";
-import { FloatingNav } from "../src/components/FloatingNav";
+import { FloatingNav, NAV_HEIGHT } from "../src/components/FloatingNav";
 import { IconButton } from "../src/components/IconButton";
-import { formatDuration, ListRow } from "../src/components/ListRow";
+import { formatDuration, ListRow, ListRowMore } from "../src/components/ListRow";
 import { NowPlayingBar } from "../src/components/NowPlayingBar";
+import { TopBar } from "../src/components/TopBar";
 import { SEED_NOTES, type SeedNote } from "../src/seedNotes";
-import { fonts, type, useTheme } from "../src/theme";
+import { pressed as pressedOpacity, space, textStyle, useTheme } from "../src/theme";
 
 type SavedState = "playing" | "heard" | "paused" | "locked" | "new";
 
@@ -29,7 +30,7 @@ function rowMeta(state: SavedState, note: SeedNote, playing: boolean): RowMeta {
   const duration = formatDuration(note.durationSec);
   if (state === "playing") {
     return playing
-      ? { icon: "stats-chart-outline", label: `Playing · 0:48 of ${duration}`, accent: true }
+      ? { icon: "pulse-outline", label: `Playing · 0:48 of ${duration}`, accent: true }
       : { icon: "pause-circle-outline", label: "Paused at 0:48", accent: false };
   }
   if (state === "heard") return { icon: "checkmark", label: `${duration} · Heard to the end`, accent: false };
@@ -45,24 +46,27 @@ type PlayCircleProps = {
   accessibilityLabel: string;
 };
 
+/**
+ * 44 play disc from the design. Playing = accent fill + pause glyph; default =
+ * 1px controlLine ring + play glyph; locked = tint fill + controlLine ring + lock.
+ */
 function PlayCircle({ state, playing, onPress, accessibilityLabel }: PlayCircleProps) {
   const theme = useTheme();
   const filled = state === "playing";
-  const icon = filled ? (playing ? "pause" : "play") : state === "locked" ? "lock-closed-outline" : "play";
+  const locked = state === "locked";
+  const icon = filled ? (playing ? "pause" : "play") : locked ? "lock-closed-outline" : "play";
   const circleStyle = filled
     ? { backgroundColor: theme.accent, borderColor: theme.accent }
-    : {
-        backgroundColor: state === "locked" ? theme.tint : theme.surfaceClear,
-        borderColor: theme.controlLine,
-      };
+    : { backgroundColor: locked ? theme.tint : theme.surfaceClear, borderColor: theme.controlLine };
+  const iconColor = filled ? theme.onAccent : locked ? theme.ink2 : theme.ink;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [styles.playCircle, circleStyle, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.playCircle, circleStyle, { opacity: pressed ? pressedOpacity.dim : 1 }]}
     >
-      <Ionicons name={icon} size={filled ? 16 : 13} color={filled ? theme.onAccent : theme.ink} />
+      <Ionicons name={icon} size={filled ? 16 : 14} color={iconColor} />
     </Pressable>
   );
 }
@@ -75,39 +79,33 @@ export default function SavedAudioScreen() {
 
   const nowPlaying = SEED_NOTES[0];
   const totalSec = SEED_NOTES.reduce((sum, note) => sum + note.durationSec, 0);
-  const sub = `${SEED_NOTES.length} notes · about ${Math.floor(totalSec / 60)} minutes of listening`;
+  const sub = `Notes you saved from the map · ${SEED_NOTES.length} notes, about ${Math.floor(totalSec / 60)} min`;
   const navBottom = insets.bottom + 4;
-  const barBottom = navBottom + 62 + 14;
+  const barBottom = navBottom + NAV_HEIGHT + 14;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={{ paddingTop: insets.top, backgroundColor: theme.bg }}>
-        <View style={styles.topBar}>
-          <IconButton
-            icon="arrow-back"
-            variant="tint"
-            size={44}
-            iconSize={19}
-            onPress={() => router.back()}
-            accessibilityLabel="Go back"
-          />
-          <Text style={[styles.topBarTitle, { color: theme.ink }]}>Saved Audio</Text>
-          <IconButton
-            icon="search"
-            variant="tint"
-            size={44}
-            iconSize={18}
-            onPress={() => {}}
-            accessibilityLabel="Search saved audio"
-          />
-        </View>
+        <TopBar
+          leading={null}
+          trailing={
+            <IconButton
+              icon="search"
+              variant="tint"
+              size={44}
+              iconSize={18}
+              onPress={() => {}}
+              accessibilityLabel="Search saved audio"
+            />
+          }
+        />
       </View>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: barBottom + 56 + 24 }}
       >
         <View style={styles.titleBlock}>
-          <Text style={[styles.screenTitle, { color: theme.ink }]}>Saved Audio</Text>
+          <Text style={[styles.screenTitle, { color: theme.ink }]}>Saved</Text>
           <Text style={[styles.screenSub, { color: theme.ink2 }]}>{sub}</Text>
         </View>
         <View style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line }}>
@@ -136,20 +134,14 @@ export default function SavedAudioScreen() {
                 eyebrow={landmarkName.toUpperCase()}
                 eyebrowTone={meta.accent ? "accent" : "ink3"}
                 title={note.title}
-                trailing={
-                  <IconButton
-                    icon="ellipsis-horizontal"
-                    variant="plain"
-                    iconSize={18}
-                    onPress={() => {}}
-                    accessibilityLabel={`More options for ${note.title}`}
-                  />
-                }
+                contentGap={4}
+                paddingVertical={18}
+                trailing={<ListRowMore onPress={() => {}} accessibilityLabel={`More options for ${note.title}`} />}
                 onPress={() => router.push(`/story/${note.id}`)}
                 accessibilityLabel={`Open ${note.title} at ${landmarkName}`}
               >
                 <View style={styles.metaRow}>
-                  <Ionicons name={meta.icon} size={13} color={meta.accent ? theme.accentText : theme.ink3} />
+                  <Ionicons name={meta.icon} size={13} color={metaColor} />
                   <Text style={[styles.metaText, { color: metaColor }, meta.accent && styles.metaStrong]}>
                     {meta.label}
                   </Text>
@@ -184,30 +176,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    height: 52,
-    paddingHorizontal: 24,
-    gap: 8,
-  },
-  topBarTitle: {
-    flex: 1,
-    fontFamily: fonts.sansSemibold,
-    fontSize: type.body },
   titleBlock: {
-    paddingHorizontal: 24,
+    paddingHorizontal: space.gutter,
     paddingTop: 12,
     paddingBottom: 20,
     gap: 4,
   },
   screenTitle: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.display,
-    letterSpacing: -1 },
+    ...textStyle.displaySans,
+  },
   screenSub: {
-    fontFamily: fonts.sans,
-    fontSize: type.body },
+    ...textStyle.body,
+  },
   playCircle: {
     width: 44,
     height: 44,
@@ -220,12 +200,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    marginTop: 2,
   },
   metaText: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
   metaStrong: {
-    fontFamily: fonts.sansBold,
+    ...textStyle.supportStrong,
   },
   fade: {
     position: "absolute",
@@ -236,16 +217,13 @@ const styles = StyleSheet.create({
   },
   nowPlaying: {
     position: "absolute",
-    left: 24,
-    right: 24,
+    left: space.gutter,
+    right: space.gutter,
   },
   navWrap: {
     position: "absolute",
     left: 0,
     right: 0,
     alignItems: "center",
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });
