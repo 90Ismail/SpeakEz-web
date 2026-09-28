@@ -36,14 +36,23 @@ async def unlock(
     note_id: uuid.UUID,
     position: UnlockRequest,
     session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
 ) -> UnlockResponse:
     try:
-        result = await unlock_service.unlock_note(session, note_id, position.lat, position.lng)
+        result = await unlock_service.unlock_note(
+            session, note_id, user.id, position.lat, position.lng
+        )
+    except unlock_service.RateLimited as exc:
+        raise HTTPException(status_code=429, detail="Too many unlocks; try again later") from exc
     except unlock_service.NoteNotFound as exc:
         raise HTTPException(status_code=404, detail="Note not found") from exc
     except unlock_service.TooFar as exc:
         raise HTTPException(
             status_code=403, detail="Not close enough to unlock this note"
+        ) from exc
+    except unlock_service.ImpossibleTravel as exc:
+        raise HTTPException(
+            status_code=403, detail="Too far from your last unlock to be here yet"
         ) from exc
     return UnlockResponse(**result)
 

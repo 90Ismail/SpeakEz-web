@@ -86,3 +86,13 @@ async def finish_processing(session: AsyncSession, note_id: uuid.UUID, status: s
         update(Note).where(Note.id == note_id, Note.status == "processing").values(status=status)
     )
     return result.rowcount > 0
+
+
+async def landmark_distance_m(session: AsyncSession, a: str, b: str) -> float:
+    """Meters between two landmarks. Landmark coordinates only, never a user's position."""
+    first, second = Landmark.__table__.alias(), Landmark.__table__.alias()
+    stmt = (
+        select(func.ST_Distance(first.c.geom, second.c.geom))
+        .where(first.c.id == a, second.c.id == b)
+    )
+    return float((await session.execute(stmt)).scalar_one())

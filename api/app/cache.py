@@ -42,3 +42,21 @@ async def invalidate(prefix: str) -> int:
     async for key in client.scan_iter(match=f"{prefix}*"):
         removed += await client.delete(key)
     return removed
+
+
+async def incr_with_ttl(key: str, ttl: int) -> int:
+    """Increment a counter that expires `ttl` seconds after its first hit. Returns the new count."""
+    client = get_redis()
+    count = await client.incr(key)
+    if count == 1:
+        await client.expire(key, ttl)
+    return count
+
+
+async def get_json(key: str):
+    raw = await get_redis().get(key)
+    return None if raw is None else json.loads(raw)
+
+
+async def set_json(key: str, value, ttl: int) -> None:
+    await get_redis().set(key, json.dumps(value), ex=ttl)
