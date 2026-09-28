@@ -89,7 +89,7 @@ export default function ProfileScreen() {
     return () => subscription.remove();
   }, [close]);
 
-  function go(route: "/care") {
+  function go(route: "/care" | "/qr") {
     if (closing.current) return;
     router.push(route);
   }
@@ -155,6 +155,12 @@ export default function ProfileScreen() {
               label="Help & Resources"
               onPress={() => go("/care")}
               accessibilityLabel="Help and Resources"
+            />
+            <DrawerItem
+              icon="qr-code-outline"
+              label="Open on another phone"
+              onPress={() => go("/qr")}
+              accessibilityLabel="Open on another phone"
             />
           </View>
         </View>

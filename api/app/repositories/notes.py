@@ -19,6 +19,86 @@ async def note_summary(session: AsyncSession, note_id: uuid.UUID) -> Row | None:
     return (await session.execute(stmt)).first()
 
 
+async def landmark_exists(session: AsyncSession, landmark_id: str) -> bool:
+    return bool(await session.scalar(select(exists().where(Landmark.id == landmark_id))))
+
+
+async def nearest_landmark(session: AsyncSession, lat: float, lng: float) -> Row | None:
+    """The landmark closest to (lat, lng). Landmark coordinates only, never stored."""
+    point = cast(func.ST_SetSRID(func.ST_MakePoint(lng, lat), 4326), Geography)
+    stmt = (
+        select(
+            Landmark.id,
+            Landmark.name,
+            func.ST_Y(cast(Landmark.geom, Geometry)).label("lat"),
+            func.ST_X(cast(Landmark.geom, Geometry)).label("lng"),
+            func.ST_Distance(Landmark.geom, point).label("distance_m"),
+        )
+        .order_by("distance_m")
+        .limit(1)
+    )
+    return (await session.execute(stmt)).first()
+
+
+async def create_note(
+    session: AsyncSession,
+    *,
+    note_id: uuid.UUID,
+    author_id: uuid.UUID,
+    landmark_id: str | None,
+    visibility: str,
+    prompt_id: int | None,
+    duration_sec: int,
+    audio_key: str,
+    parent_id: uuid.UUID | None = None,
+) -> uuid.UUID:
+    """Insert a new note in "processing". The caller commits."""
+    session.add(
+        Note(
+            id=note_id,
+            author_id=author_id,
+            landmark_id=landmark_id,
+            visibility=visibility,
+            prompt_id=prompt_id,
+            duration_sec=duration_sec,
+            audio_key=audio_key,
+            status="processing",
+            parent_id=parent_id,
+        )
+    )
+    await session.flush()
+    return note_id
+
+
+async def owned_status(session: AsyncSession, note_id: uuid.UUID) -> Row | None:
+    """(author_id, status) for a note, so submit can check ownership before enqueuing."""
+    stmt = select(Note.author_id, Note.status).where(Note.id == note_id)
+    return (await session.execute(stmt)).first()
+
+
+async def parent_landmark(session: AsyncSession, parent_id: uuid.UUID) -> Row | None:
+    """(landmark_id, visibility, status) for a note a reply is answering."""
+    stmt = select(Note.landmark_id, Note.visibility, Note.status).where(Note.id == parent_id)
+    return (await session.execute(stmt)).first()
+
+
+async def draft_view(session: AsyncSession, note_id: uuid.UUID) -> Row | None:
+    """(author_id, status, title, body, words, visibility) for the author's review screen."""
+    stmt = select(
+        Note.author_id, Note.status, Note.title, Note.body, Note.words, Note.visibility
+    ).where(Note.id == note_id)
+    return (await session.execute(stmt)).first()
+
+
+async def save_transcript(
+    session: AsyncSession, note_id: uuid.UUID, title: str, body: str, words: list[dict]
+) -> None:
+    """Write the worker's transcript, title and word timings. The caller commits."""
+    await session.execute(
+        update(Note).where(Note.id == note_id).values(title=title, body=body, words=words)
+    )
+
+
 async def within_radius(
     session: AsyncSession, landmark_id: str, lat: float, lng: float, radius_m: int
 ) -> bool:

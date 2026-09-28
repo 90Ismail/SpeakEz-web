@@ -1,0 +1,126 @@
+# Production-ish stack: same containers as docker-compose.yml, no source bind
+# mounts and no --reload, Alembic migrations on API start, restart policies.
+#
+#   cp .env.production.example .env
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# The GPU NeMo worker is usually NOT in this file: run it on a GPU box / Colab
+# pointed at the same REDIS_URL and DATABASE_URL (see deploy/README.md). To run
+# the demo (no-GPU) worker here instead:
+#
+#   docker compose -f docker-compose.prod.yml --profile cpu-worker up -d --build
+name: speakez-prod
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-speakez}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-speakez}
+      POSTGRES_DB: ${POSTGRES_DB:-speakez}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-speakez} -d ${POSTGRES_DB:-speakez}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    # Loopback only, so a Colab SSH tunnel has something to land on without
+    # exposing Postgres to the internet. See deploy/README.md §"Colab".
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    # Loopback only, for the same tunnel. Nothing new faces the internet.
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    env_file: .env
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+    # Loopback only: Caddy reaches the api over the compose network. Published
+    # publicly it would serve plaintext past the TLS profile, with no auth behind
+    # it (DEMO_MODE=true). Drop the 127.0.0.1 prefix only if you front it yourself.
+    ports:
+      - "127.0.0.1:${PORT:-8000}:${PORT:-8000}"
+    volumes:
+      # Audio the worker fetches over signed URLs lives here; mount a real disk.
+      - media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os,urllib.request,sys; p=os.environ.get('PORT','8000'); sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:'+p+'/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    # CRON ONLY, on its own queue (speakez:cron), so it can never steal a
+    # process_note job from the GPU worker. This is the always-on worker.
+    # If the GPU/Colab worker is unavailable and judges need notes to process,
+    # run the real queue here instead:
+    #   docker compose -f docker-compose.prod.yml --profile cpu-worker run -d --rm \
+    #     -e ASR_ENGINE=demo worker arq worker.main.WorkerSettings
+    profiles: ["cpu-worker"]
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ASR_ENGINE: ${ASR_ENGINE:-demo}
+    working_dir: /
+    command: arq worker.main.CronWorkerSettings
+    volumes:
+      - media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  caddy:
+    # Optional TLS termination (profile "tls"). Enable it if you do not already
+    # run a reverse proxy on the VPS; it gets a free cert for
+    # api.<dashed-ip>.sslip.io and gives the app an HTTPS API_BASE_URL.
+    #   docker compose -f docker-compose.prod.yml --profile tls up -d
+    profiles: ["tls"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      # e.g. API_HOST=api.203-0-113-7.sslip.io (dots in the IP become dashes).
+      API_HOST: ${API_HOST:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  media:
+  caddydata:
+  caddyconfig:

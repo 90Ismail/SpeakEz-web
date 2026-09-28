@@ -1,0 +1,12 @@
+# The GPU worker's extra runtime: NeMo + Parakeet on top of the queue client.
+# Listed explicitly (no `-r`) so it installs the same whether pip is run from the
+# repo root, from /worker, or from a Colab cell.
+arq>=0.26
+httpx>=0.27
+# In Docker / on a GPU box this file is authoritative, so torch is pinned here.
+# In Colab, do NOT install this file: Colab ships a torch matched to its CUDA
+# driver, and letting pip resolve another build is the classic way to end up with
+# torch.cuda.is_available() == False. Use `pip install "nemo_toolkit[asr]" arq httpx`
+# there instead (see deploy/colab.ipynb).
+torch
+nemo_toolkit[asr]

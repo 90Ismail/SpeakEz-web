@@ -170,7 +170,9 @@ export function MapScreen() {
         showsPointsOfInterests={!usesGoogle}
         mapPadding={mapPadding}
         onPress={handleMapPress}
-        onLongPress={(event) => setFakePosition(event.nativeEvent.coordinate)}
+        onLongPress={(event) => {
+          if (demo.enabled) setFakePosition(event.nativeEvent.coordinate);
+        }}
         onRegionChange={(region) => setAreaLabel(labelFor(region))}
         onRegionChangeComplete={(region) => {
           const bounds = boundsFromRegion(region);

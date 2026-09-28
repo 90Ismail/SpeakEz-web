@@ -74,3 +74,24 @@ class PublishResponse(BaseModel):
     id: uuid.UUID
     status: str
     live_within_minutes: int
+
+
+class NoteCreated(BaseModel):
+    id: uuid.UUID
+    status: str
+
+
+class SubmitResponse(BaseModel):
+    id: uuid.UUID
+    status: str
+
+
+class DraftOut(BaseModel):
+    """The author's own note after processing. Never returned to anyone else."""
+
+    id: uuid.UUID
+    status: str  # processing | draft | held | blocked
+    title: str | None
+    body: str | None
+    words: list[WordOut] | None
+    visibility: str

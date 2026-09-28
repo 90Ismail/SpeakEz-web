@@ -36,6 +36,8 @@ services:
       ALLOWED_EMAIL_DOMAIN: ${ALLOWED_EMAIL_DOMAIN:-umn.edu}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       UNLOCK_RADIUS_M: ${UNLOCK_RADIUS_M:-150}
+      API_BASE_URL: ${API_BASE_URL:-http://api:8000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
       DEMO_MODE: ${DEMO_MODE:-true}
     ports:
       - "8000:8000"
@@ -64,6 +66,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me}
       EMAIL_PEPPER: ${EMAIL_PEPPER:-change-me-too}
       DEMO_MODE: ${DEMO_MODE:-true}
+      # 'demo' needs no GPU and processes notes end to end; the GPU worker uses 'parakeet'.
+      ASR_ENGINE: ${ASR_ENGINE:-demo}
+      # Only used if this worker has no media volume; here it shares one with the api.
+      API_BASE_URL: http://api:8000
     volumes:
       - ./worker:/worker
       - media:/app/media

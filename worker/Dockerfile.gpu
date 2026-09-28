@@ -1,0 +1,41 @@
+# GPU worker image: NeMo Parakeet TDT 0.6B v2 for real transcription.
+#
+# Built from the repo root so the api package (safety gate, note rules, storage)
+# is importable:
+#   docker build -f worker/Dockerfile.gpu -t speakez-worker-gpu .
+#   docker run --gpus all --env-file .env speakez-worker-gpu
+#
+# It only dials outward to REDIS_URL / DATABASE_URL / API_BASE_URL, so the same
+# image runs on a GPU box, a cloud VM with a GPU, or in Colab. Model weights are
+# cached under /models (HF_HOME) so they download once.
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/models \
+    ASR_ENGINE=parakeet
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        python3 python3-venv python3-pip ffmpeg git curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# A venv avoids the PEP 668 "externally managed environment" error on 24.04.
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /
+COPY worker/requirements.txt /worker/requirements.txt
+COPY worker/requirements-gpu.txt /worker/requirements-gpu.txt
+COPY api/pyproject.toml /api/pyproject.toml
+COPY api/app /api/app
+RUN pip install --upgrade pip \
+    && pip install -r /worker/requirements-gpu.txt /api
+
+COPY worker /worker
+
+# Mount a volume here so the ~2.5 GB of weights survive container restarts.
+VOLUME ["/models"]
+
+CMD ["arq", "worker.main.WorkerSettings"]

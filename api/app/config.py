@@ -23,8 +23,19 @@ class Settings(BaseSettings):
     unlock_radius_m: int = 150
     demo_mode: bool = False  # compose and .env.example turn it on for the demo
 
+    # Public base URL of this API. The worker uses it to fetch audio over HTTPS
+    # when it does not share the API's media volume (GPU box / Colab).
+    api_base_url: str = "http://localhost:8000"
+
+    # Comma-separated CORS origins, or "*" for the demo stack.
+    cors_origins: str = "*"
+
     # Display-time zone for day labels ("this evening"). Campus is Central.
     display_timezone: str = "America/Chicago"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     @model_validator(mode="after")
     def refuse_default_secrets(self) -> "Settings":

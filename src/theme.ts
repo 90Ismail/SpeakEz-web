@@ -153,6 +153,9 @@ export type ColorTokens = {
   mapLandmark: string;
   mapPath: string;
   mapTunnel: string;
+  /** QR codes stay dark-on-light in both themes so any scanner reads them. */
+  qrDark: string;
+  qrLight: string;
 };
 
 const light: ColorTokens = {
@@ -193,6 +196,8 @@ const light: ColorTokens = {
   mapLandmark: "#D2D8D5",
   mapPath: "#FCFCFA",
   mapTunnel: "#8A938F",
+  qrDark: "#1C1D1F",
+  qrLight: "#FFFFFF",
 };
 
 const dark: ColorTokens = {
@@ -233,6 +238,8 @@ const dark: ColorTokens = {
   mapLandmark: "#30353A",
   mapPath: "#343A3E",
   mapTunnel: "#5E6669",
+  qrDark: "#1C1D1F",
+  qrLight: "#FFFFFF",
 };
 
 export const palette: Record<ThemeMode, ColorTokens> = { light, dark };

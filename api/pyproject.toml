@@ -2,13 +2,16 @@
 name = "speakez-api"
 version = "0.1.0"
 description = "SpeakEz API: anonymous, place-based voice notes for UMN"
-requires-python = ">=3.12"
+# 3.10 floor so the GPU worker can install this package in a Colab runtime.
+requires-python = ">=3.10"
 dependencies = [
   "alembic>=1.13",
+  "arq>=0.26",
   "asyncpg>=0.29",
   "fastapi>=0.115",
   "geoalchemy2>=0.15",
   "pydantic-settings>=2.4",
+  "python-multipart>=0.0.9",
   "pyyaml>=6.0",
   "redis>=5.0",
   "sqlalchemy[asyncio]>=2.0",

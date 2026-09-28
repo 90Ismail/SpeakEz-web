@@ -1,0 +1,18 @@
+# Caddy config for the optional "tls" profile (docker-compose.prod.yml).
+#
+# Caddy gets a free Let's Encrypt certificate for the host below and proxies it
+# to the api container. With sslip.io you need no domain: API_HOST=api.<ip-with-dashes>.sslip.io
+# (e.g. 203.0.113.7 -> api.203-0-113-7.sslip.io). sslip.io resolves that name
+# back to the IP automatically.
+#
+# HTTP -> HTTPS, gzip, and the /media route (signed audio URLs) all pass through
+# unchanged, so API_BASE_URL=https://$API_HOST is all the worker and app need.
+{$API_HOST:localhost} {
+	encode gzip
+
+	# Keep uploads (voice notes) and the health check fast.
+	reverse_proxy api:8000 {
+		health_uri /health
+		health_interval 30s
+	}
+}

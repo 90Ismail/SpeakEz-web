@@ -21,7 +21,14 @@ import {
 } from "../src/components/RecordReviewStage";
 import { TopBar } from "../src/components/TopBar";
 import { IconButton } from "../src/components/IconButton";
-import { createNote, submitNote } from "../src/api/records";
+import {
+  createNote,
+  createReply,
+  fetchDraft,
+  publishNote,
+  submitNote,
+  type DraftResult,
+} from "../src/api/records";
 import { CAMPUS_LANDMARKS } from "../src/campusLandmarks";
 import { CAMPUS_CENTER } from "../src/config";
 import { useDemoState } from "../src/demo";
@@ -75,6 +82,30 @@ function buildTranscript(): ReviewParagraph[] {
 
 const TRANSCRIPT = buildTranscript();
 
+/** Turn the worker's transcript body (paragraphs joined by blank lines) into review paragraphs. */
+function paragraphsFromBody(body: string): ReviewParagraph[] {
+  return body
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .map((part, index): ReviewParagraph => ({
+      id: `p${index}`,
+      tone: index === 0 ? "ink" : "ink2",
+      kind: "plain",
+      sentences: toSentences(`p${index}`, part),
+    }));
+}
+
+async function waitForDraft(noteId: string): Promise<DraftResult> {
+  const deadline = Date.now() + 180_000;
+  for (;;) {
+    const result = await fetchDraft(noteId);
+    if (result.status !== "processing") return result;
+    if (Date.now() >= deadline) throw new Error("This is taking longer than usual. Tap try again.");
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+}
+
 function mockTitle(): string {
   const firstSentence = TRANSCRIPT[0]?.sentences[0]?.text ?? "A note from campus";
   const words = firstSentence.split(/\s+/).slice(0, 7).join(" ").replace(/[,;:.!?]+$/, "");
@@ -124,6 +155,7 @@ export default function RecordScreen() {
   const [mockPlaying, setMockPlaying] = useState(false);
   const [uploadPhase, setUploadPhase] = useState<RecordProcessingPhase>("uploading");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<DraftResult | null>(null);
 
   const recorderFailedRef = useRef(false);
   const permissionGrantedRef = useRef(false);
@@ -364,18 +396,39 @@ export default function RecordScreen() {
     setStage("processing");
 
     try {
-      const landmark = choice === "campus" ? campusLandmark : spotLandmark;
-      const noteId =
-        noteIdRef.current ??
-        (
-          await createNote({
-            audioUri: recordedUri,
-            landmarkId: landmark.id,
-            durationSec: elapsedRef.current,
-          })
-        ).noteId;
-      noteIdRef.current = noteId;
+      let noteId = noteIdRef.current;
+      const journal = isPromptAnswer || choice === "journal";
+      if (!noteId) {
+        if (isReply && replyTo) {
+          noteId = (
+            await createReply({
+              audioUri: recordedUri,
+              parentId: replyTo,
+              durationSec: elapsedRef.current,
+            })
+          ).noteId;
+        } else {
+          const landmark = choice === "campus" ? campusLandmark : spotLandmark;
+          noteId = (
+            await createNote({
+              audioUri: recordedUri,
+              landmarkId: journal ? null : landmark.id,
+              durationSec: elapsedRef.current,
+              visibility: journal ? "journal" : "public",
+            })
+          ).noteId;
+        }
+        noteIdRef.current = noteId;
+      }
       await submitNote(noteId);
+      const result = await waitForDraft(noteId);
+      if (result.status === "held" || result.status === "blocked") {
+        // Never a bare "rejected": a held or blocked note goes to the care screen (hard rule 4).
+        router.replace("/care");
+        return;
+      }
+      setDraft(result);
+      if (result.title) setTitle(result.title);
       setUploadPhase("queued");
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "We couldn't send your voice note.");
@@ -383,7 +436,26 @@ export default function RecordScreen() {
     } finally {
       uploadInFlightRef.current = false;
     }
-  }, [campusLandmark, choice, recordedUri, spotLandmark]);
+  }, [campusLandmark, choice, isPromptAnswer, isReply, replyTo, recordedUri, router, spotLandmark]);
+
+  const publish = useCallback(async () => {
+    const noteId = noteIdRef.current;
+    const journal = isPromptAnswer || choice === "journal";
+    if (noteId && !journal) {
+      try {
+        await publishNote(noteId, title || null);
+      } catch {
+        // Already published, or the network dropped; return to the map anyway.
+      }
+    }
+    if (isReply) router.back();
+    else router.replace("/");
+  }, [choice, isPromptAnswer, isReply, router, title]);
+
+  const paragraphs = useMemo<ReviewParagraph[]>(
+    () => (draft?.body ? paragraphsFromBody(draft.body) : TRANSCRIPT),
+    [draft],
+  );
 
   const primaryMode = isRecording ? "stop" : hasRecording ? "continue" : "record";
 
@@ -468,12 +540,12 @@ export default function RecordScreen() {
           playing={playing}
           onTogglePlayback={togglePlayback}
           durationSec={elapsedSec}
-          paragraphs={TRANSCRIPT}
+          paragraphs={paragraphs}
           excludedIds={excluded}
           onToggleSentence={toggleSentence}
           onBack={() => setStage(isPromptAnswer || isReply ? "record" : "place")}
           onDiscard={() => router.back()}
-          onPublish={() => (isReply ? router.back() : router.replace("/"))}
+          onPublish={() => void publish()}
           onKeepDraft={() => router.replace("/journal")}
           onSaveJournal={() => router.replace("/journal")}
           kind={isReply ? "public" : noteKindOf(choice)}
