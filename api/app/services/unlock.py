@@ -118,6 +118,9 @@ async def unlock_note(
         last = {"landmark_id": note["landmark_id"], "at": now}
         await set_json(last_key, last, LAST_UNLOCK_TTL_SECONDS)
 
+    # Receipt contains no position; it grants reactions for this account and note for one hour.
+    await set_json(f"unlocked:{account_id}:{note_id}", True, 3600)
+
     return {
         "body": note["body"] or "",
         "words": note["words"],

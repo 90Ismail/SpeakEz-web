@@ -112,8 +112,8 @@ Anonymity here is architecture, not a setting:
 - Seeded notes ship with generated voices and word timings, so the demo plays end to end immediately.
 - Dark mode, custom type system (Karla + Newsreader), and a dev theme-check screen.
 
-In the works: umn.edu OTP sign-in, the record upload path into the GPU worker, the safety gate wired
-into publish, and reactions.
+UMN email OTP sign-in and per-account reactions are wired to the API. Set up email delivery as
+described below to test real accounts; the demo account remains available when `DEMO_MODE=true`.
 
 ## Try it
 
@@ -164,3 +164,34 @@ worker/     arq worker (Parakeet roadmap in worker/README.md)
 
 Deeper docs: `AGENTS.md` (build plan and hard rules), `tech-stack.md` (stack decisions and
 rationale), `worker/README.md` (ASR pipeline roadmap).
+
+## Email sign-in and reactions
+
+For real sign-in, configure `RESEND_API_KEY` and `RESEND_FROM` (an address on a verified Resend
+sending domain), set `JWT_SECRET` and `EMAIL_PEPPER` to independent random secrets
+(`openssl rand -hex 32`), and use `DEMO_MODE=false`. Keep `EMAIL_PEPPER` stable: it identifies
+existing accounts without storing their email addresses. Use HTTPS outside local development.
+The app reads `/auth/config` at startup; no separate client demo flag is required.
+
+- `POST /auth/start` accepts only `@umn.edu`, sends a six-digit code, and limits requests to five
+  per hour per email hash and client IP, plus a 60-second resend cooldown.
+- `POST /auth/verify` accepts `{email, code, over18: true}`. Codes expire after ten minutes,
+  allow five guesses, and are consumed once, including under concurrent requests.
+- Access JWTs expire after 15 minutes. Refresh tokens rotate on use, expire after 30 days,
+  and are stored hashed in Redis. The app stores credentials in Expo SecureStore and retries
+  expired authenticated requests once, including recording uploads.
+- Profile offers sign-in or sign-out. Sign-out revokes the current refresh token; an already
+  issued access token remains valid for its remaining lifetime (at most 15 minutes).
+- `DEMO_MODE=true` keeps the seeded account for requests without a bearer token. It is a shared
+  account, so its reactions are shared too. A supplied invalid token never falls back to it.
+- After a successful unlock, an account can read/set its reaction for that note for one hour.
+  `GET /notes/{id}/reactions` returns `{type}`; `POST` accepts one of the four types or `null`
+  to remove it. One row per account/note is updated atomically. Private/non-live notes are refused.
+  No counts, identities, or coordinates are returned or stored with reactions.
+
+Behind a reverse proxy, configure Uvicorn's trusted proxy addresses to match your deployment so
+IP rate limits use the resolved client IP. Never trust arbitrary forwarded headers from clients.
+
+Local checks: `cd api && ../.venv/bin/python -m pytest -q`, `npm run typecheck`,
+`npm run audit:colors`, and `npm run test:session`. Live email delivery and a phone walkthrough
+require the configured backend and Expo Go.

@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 
-const ALLOWED = new Set(["src/theme.ts", "src/mapStyle.ts"]);
+// The landing page's vendored QR encoder is independent of the app theme.
+const ALLOWED = new Set(["src/theme.ts", "src/mapStyle.ts", "deploy/landing/qrcode.min.js"]);
 const HEX = /#[0-9A-Fa-f]{3,8}\b/g;
 
 const files = execSync("git ls-files", { encoding: "utf8" })

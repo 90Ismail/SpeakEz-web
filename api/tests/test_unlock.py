@@ -279,7 +279,8 @@ async def test_demo_mode_skips_rate_limit_and_travel_check(monkeypatch, clock, r
     patch_landmark_distance(monkeypatch, 1300)
     clock.value += 1
     await unlock_at("wilson-library")
-    assert redis_store == {}
+    assert not any(key.startswith("unlock:") for key in redis_store)
+    assert redis_store[f"unlocked:{ACCOUNT_ID}:{NOTE_ID}"] is True
 
 
 async def test_demo_mode_still_checks_distance(monkeypatch):

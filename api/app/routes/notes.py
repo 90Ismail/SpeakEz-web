@@ -22,7 +22,7 @@ from ..services import publish as publish_service
 from ..services import records as records_service
 from ..services import unlock as unlock_service
 
-router = APIRouter(tags=["notes"])
+router = APIRouter(tags=["notes"], dependencies=[Depends(current_user)])
 
 
 @router.post("/notes", response_model=NoteCreated, status_code=201)

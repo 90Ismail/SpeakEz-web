@@ -6,16 +6,18 @@ type ReactionButtonProps = {
   label: string;
   selected: boolean;
   onPress: () => void;
+  disabled?: boolean;
 };
 
-export function ReactionButton({ label, selected, onPress }: ReactionButtonProps) {
+export function ReactionButton({ label, selected, onPress, disabled }: ReactionButtonProps) {
   const theme = useTheme();
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled }}
       style={({ pressed }) => [
         styles.base,
         selected

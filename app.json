@@ -42,7 +42,8 @@
           "isAndroidBackgroundLocationEnabled": false
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-secure-store"
     ]
   }
 }

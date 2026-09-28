@@ -1,3 +1,4 @@
+import { authenticatedFetch } from "../session";
 import { API_URL } from "../config";
 
 export type CreateNoteInput = {
@@ -108,7 +109,7 @@ export async function createNote(input: CreateNoteInput): Promise<CreateNoteResp
   if (input.promptId != null) form.append("prompt_id", String(input.promptId));
 
   const payload = await readResponse(
-    await fetch(endpoint("/notes"), {
+    await authenticatedFetch(endpoint("/notes"), {
       method: "POST",
       headers: headers(input.accessToken),
       body: form,
@@ -133,7 +134,7 @@ export async function createNote(input: CreateNoteInput): Promise<CreateNoteResp
 
 export async function submitNote(noteId: string, accessToken?: string): Promise<void> {
   await readResponse(
-    await fetch(endpoint(`/notes/${encodeURIComponent(noteId)}/submit`), {
+    await authenticatedFetch(endpoint(`/notes/${encodeURIComponent(noteId)}/submit`), {
       method: "POST",
       headers: headers(accessToken),
     }),
@@ -158,7 +159,7 @@ export async function createReply(input: CreateReplyInput): Promise<CreateNoteRe
   form.append("duration_sec", String(Math.max(1, Math.round(input.durationSec))));
 
   const payload = await readResponse(
-    await fetch(endpoint(`/notes/${encodeURIComponent(input.parentId)}/replies`), {
+    await authenticatedFetch(endpoint(`/notes/${encodeURIComponent(input.parentId)}/replies`), {
       method: "POST",
       headers: headers(input.accessToken),
       body: form,
@@ -173,7 +174,7 @@ export async function createReply(input: CreateReplyInput): Promise<CreateNoteRe
 /** The author's own note after processing: status, title, transcript and word timings. */
 export async function fetchDraft(noteId: string, accessToken?: string): Promise<DraftResult> {
   const payload = await readResponse(
-    await fetch(endpoint(`/notes/${encodeURIComponent(noteId)}/draft`), {
+    await authenticatedFetch(endpoint(`/notes/${encodeURIComponent(noteId)}/draft`), {
       method: "GET",
       headers: headers(accessToken),
     }),
@@ -191,7 +192,7 @@ export async function publishNote(
   accessToken?: string,
 ): Promise<PublishResult> {
   const payload = await readResponse(
-    await fetch(endpoint(`/notes/${encodeURIComponent(noteId)}/publish`), {
+    await authenticatedFetch(endpoint(`/notes/${encodeURIComponent(noteId)}/publish`), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...headers(accessToken) },
       body: JSON.stringify(title ? { title } : {}),
