@@ -22,9 +22,10 @@ async def _load_note(session: AsyncSession, note_id: uuid.UUID) -> dict | None:
     row = await notes_repo.note_summary(session, note_id)
     if row is None:
         return None
-    status, landmark_id, body, words, audio_key = row
+    status, visibility, landmark_id, body, words, audio_key = row
     return {
         "status": status,
+        "visibility": visibility,
         "landmark_id": landmark_id,
         "body": body,
         "words": words,
@@ -39,7 +40,8 @@ async def unlock_note(
     note = await get_or_set(
         f"note:{note_id}", NOTE_CACHE_TTL_SECONDS, lambda: _load_note(session, note_id)
     )
-    if note is None or note["status"] != "live":
+    # Journal entries are private: to anyone else they don't exist, even if nearby.
+    if note is None or note["status"] != "live" or note.get("visibility", "public") != "public":
         raise NoteNotFound
 
     near = await notes_repo.within_radius(

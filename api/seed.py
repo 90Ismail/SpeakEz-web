@@ -221,11 +221,28 @@ async def seed() -> None:
                     audio_key=audio_key,
                     duration_sec=audio_duration or entry["duration_sec"],
                     status="live",
+                    visibility="public",
                     publish_at=created_at,
                     created_at=created_at,
                     seeded=True,
                 )
             )
+
+        # One private voice journal entry: no place, never on the map, never unlockable.
+        session.add(
+            Note(
+                id=uuid.uuid5(SEED_NOTES_NAMESPACE, "journal-not-ready"),
+                author_id=author_id,
+                landmark_id=None,
+                title="Things I'm not ready to say yet",
+                body="I just needed to say this out loud once.",
+                duration_sec=108,
+                status="live",
+                visibility="journal",
+                created_at=created_at_for(7, 23, 10, now),
+                seeded=True,
+            )
+        )
 
         await session.commit()
 
@@ -233,7 +250,7 @@ async def seed() -> None:
     await invalidate("note:")
     await close_redis()
     await engine.dispose()
-    print(f"seeded {len(LANDMARKS)} landmarks and {len(SEED_NOTES)} notes")
+    print(f"seeded {len(LANDMARKS)} landmarks, {len(SEED_NOTES)} public notes and 1 journal entry")
 
 
 if __name__ == "__main__":

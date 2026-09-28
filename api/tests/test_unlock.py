@@ -16,8 +16,15 @@ def no_cache(monkeypatch):
     monkeypatch.setattr(unlock_service, "get_or_set", get_or_set)
 
 
-def note_row(status="live", landmark_id="walter-library", body="One.\n\nTwo.", words=None, audio_key=None):
-    return (status, landmark_id, body, words, audio_key)
+def note_row(
+    status="live",
+    visibility="public",
+    landmark_id="walter-library",
+    body="One.\n\nTwo.",
+    words=None,
+    audio_key=None,
+):
+    return (status, visibility, landmark_id, body, words, audio_key)
 
 
 def patch_note(monkeypatch, row):
@@ -75,6 +82,14 @@ async def test_unlock_missing_note(monkeypatch):
 @pytest.mark.parametrize("status", ["processing", "draft", "held", "blocked"])
 async def test_unlock_only_live_notes(monkeypatch, status):
     patch_note(monkeypatch, note_row(status=status))
+    patch_distance(monkeypatch, True)
+
+    with pytest.raises(unlock_service.NoteNotFound):
+        await unlock_service.unlock_note(None, NOTE_ID, 44.97536, -93.2363)
+
+
+async def test_unlock_never_opens_journal_entries(monkeypatch):
+    patch_note(monkeypatch, note_row(visibility="journal"))
     patch_distance(monkeypatch, True)
 
     with pytest.raises(unlock_service.NoteNotFound):
