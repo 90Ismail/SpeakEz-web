@@ -1,8 +1,8 @@
 """Publish a reviewed draft: the last gate before a note can go live.
 
 The note must be the caller's, must be "draft" (only the worker's safety check sets that), and any
-edited title must pass the same lexicon. Publishing only schedules publish_at; the scheduled job
-flips "draft" to "live" once it passes.
+edited title must pass the same lexicon; a held or blocked title holds or blocks the whole note.
+Publishing only schedules publish_at; the scheduled job flips "draft" to "live" once it passes.
 """
 
 import secrets
@@ -56,9 +56,12 @@ async def publish_note(
 
     if title is not None:
         verdict = safety.check_transcript(title)
-        await safety.record_verdict(session, note_id, verdict)
+        await safety.record_verdict(session, note_id, verdict, source="title")
         if verdict.decision != "draft":
-            await session.commit()  # keep the audit row even though the publish is refused
+            # The note takes the title's verdict, same as a held or blocked transcript: a held
+            # note sends the author to the care screen. Saved even though the publish is refused.
+            await notes_repo.set_draft_status(session, note_id, verdict.decision)
+            await session.commit()
             raise TitleRefused(verdict.decision)
 
     demo_mode = get_settings().demo_mode

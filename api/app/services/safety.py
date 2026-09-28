@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 
 LEXICON_PATH = Path(__file__).resolve().parent.parent / "safety" / "lexicon.v1.yaml"
 LAYER = "lexicon"
+# What a verdict was about; logged as "lexicon.transcript" / "lexicon.title".
+SOURCES = ("transcript", "title")
 
 # Checked in this order; the first category with a match decides.
 CATEGORY_DECISIONS = (("threat", "blocked"), ("self_harm", "held"))
@@ -145,13 +147,20 @@ def check_transcript(text: str) -> SafetyVerdict:
     return SafetyVerdict(CLEAN_DECISION, None, LAYER, lexicon.version)
 
 
-async def record_verdict(session: "AsyncSession", note_id: uuid.UUID, verdict: SafetyVerdict) -> None:
+async def record_verdict(
+    session: "AsyncSession", note_id: uuid.UUID, verdict: SafetyVerdict, source: str = "transcript"
+) -> None:
     """Write the verdict to moderation_log. Call it for every verdict, clean ones included.
 
-    Only note_id, layer, label and decision are stored: never the transcript, author, email or
-    position. The caller commits.
+    `source` says what was checked ("transcript" or "title") and is logged as the layer, e.g.
+    "lexicon.title". Only note_id, layer, label and decision are stored: never the text itself,
+    author, email or position. The caller commits.
     """
+    if source not in SOURCES:
+        raise ValueError(f"source must be one of {SOURCES}")
     # Imported here so importing check_transcript never pulls in the database layer.
     from ..repositories import moderation as moderation_repo
 
-    await moderation_repo.insert_log(session, note_id, verdict.layer, verdict.label, verdict.decision)
+    await moderation_repo.insert_log(
+        session, note_id, f"{verdict.layer}.{source}", verdict.label, verdict.decision
+    )

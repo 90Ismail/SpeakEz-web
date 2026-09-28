@@ -71,3 +71,10 @@ async def schedule_publish(
     await session.execute(
         update(Note).where(Note.id == note_id, Note.status == "draft").values(**values)
     )
+
+
+async def set_draft_status(session: AsyncSession, note_id: uuid.UUID, status: str) -> None:
+    """Move a draft to another status (e.g. "held" after a title check). Only touches drafts."""
+    await session.execute(
+        update(Note).where(Note.id == note_id, Note.status == "draft").values(status=status)
+    )

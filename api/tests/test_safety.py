@@ -185,7 +185,20 @@ def patch_insert(monkeypatch):
 async def test_record_verdict_logs_every_decision(monkeypatch, text, decision, label):
     calls = patch_insert(monkeypatch)
     await record_verdict(FakeSession(), NOTE_ID, check_transcript(text))
-    assert calls == [(NOTE_ID, "lexicon", label, decision)]
+    assert calls == [(NOTE_ID, "lexicon.transcript", label, decision)]
+
+
+async def test_record_verdict_logs_title_checks_separately(monkeypatch):
+    calls = patch_insert(monkeypatch)
+    await record_verdict(FakeSession(), NOTE_ID, check_transcript("kms"), source="title")
+    assert calls == [(NOTE_ID, "lexicon.title", "self_harm.kms", "held")]
+
+
+async def test_record_verdict_rejects_unknown_source(monkeypatch):
+    calls = patch_insert(monkeypatch)
+    with pytest.raises(ValueError):
+        await record_verdict(FakeSession(), NOTE_ID, check_transcript("hello"), source="body")
+    assert calls == []
 
 
 async def test_record_verdict_never_stores_the_transcript(monkeypatch):

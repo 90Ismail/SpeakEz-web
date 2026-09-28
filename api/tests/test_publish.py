@@ -30,7 +30,7 @@ class FakeSession:
 @pytest.fixture
 def db(monkeypatch):
     """Stubs the repositories. Set db.row to (author_id, status) or None; read what was written."""
-    state = SimpleNamespace(row=(AUTHOR_ID, "draft"), scheduled=[], logged=[])
+    state = SimpleNamespace(row=(AUTHOR_ID, "draft"), scheduled=[], logged=[], status_changes=[])
 
     async def lock_for_publish(session, note_id):
         if state.row is None:
@@ -41,11 +41,15 @@ def db(monkeypatch):
     async def schedule_publish(session, note_id, publish_at, title):
         state.scheduled.append((note_id, publish_at, title))
 
+    async def set_draft_status(session, note_id, status):
+        state.status_changes.append((note_id, status))
+
     async def insert_log(session, note_id, layer, label, decision):
         state.logged.append((note_id, layer, label, decision))
 
     monkeypatch.setattr(notes_repo, "lock_for_publish", lock_for_publish)
     monkeypatch.setattr(notes_repo, "schedule_publish", schedule_publish)
+    monkeypatch.setattr(notes_repo, "set_draft_status", set_draft_status)
     monkeypatch.setattr(moderation_repo, "insert_log", insert_log)
     return state
 
@@ -104,8 +108,9 @@ async def test_demo_mode_still_refuses_held_note(monkeypatch, db):
 async def test_clean_title_is_checked_logged_and_saved(monkeypatch, db):
     set_demo_mode(monkeypatch, False)
     await publish_service.publish_note(FakeSession(), NOTE_ID, AUTHOR_ID, "Quiet night at Walter")
-    assert db.logged == [(NOTE_ID, "lexicon", None, "draft")]
+    assert db.logged == [(NOTE_ID, "lexicon.title", None, "draft")]
     assert db.scheduled[0][2] == "Quiet night at Walter"
+    assert db.status_changes == []
 
 
 @pytest.mark.parametrize("demo_mode", [False, True])
@@ -116,14 +121,15 @@ async def test_clean_title_is_checked_logged_and_saved(monkeypatch, db):
         ("gonna shoot up coffman", "blocked", "threat.attack_place"),
     ],
 )
-async def test_unsafe_title_refuses(monkeypatch, db, title, decision, label, demo_mode):
+async def test_unsafe_title_refuses_and_sets_note_status(monkeypatch, db, title, decision, label, demo_mode):
     set_demo_mode(monkeypatch, demo_mode)
     session = FakeSession()
     with pytest.raises(publish_service.TitleRefused) as exc:
         await publish_service.publish_note(session, NOTE_ID, AUTHOR_ID, title)
     assert exc.value.decision == decision
-    assert db.logged == [(NOTE_ID, "lexicon", label, decision)]
-    assert session.commits == 1  # the audit row is kept
+    assert db.logged == [(NOTE_ID, "lexicon.title", label, decision)]
+    assert db.status_changes == [(NOTE_ID, decision)]
+    assert session.commits == 1  # the audit row and the new status are kept
     assert db.scheduled == []
 
 
@@ -133,6 +139,7 @@ async def test_status_is_checked_before_title(monkeypatch, db):
     with pytest.raises(publish_service.NotPublishable):
         await publish_service.publish_note(FakeSession(), NOTE_ID, AUTHOR_ID, "Quiet night")
     assert db.logged == []
+    assert db.status_changes == []
 
 
 @pytest.mark.parametrize("row", [None, (uuid.uuid4(), "draft")])
@@ -185,6 +192,7 @@ async def test_route_held_title_tells_app_to_show_care(monkeypatch, db, client):
         response = await client.post(f"/notes/{NOTE_ID}/publish", json={"title": "kms"})
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "title_held"
+    assert db.status_changes == [(NOTE_ID, "held")]
 
 
 async def test_route_rejects_blank_title(monkeypatch, db, client):
