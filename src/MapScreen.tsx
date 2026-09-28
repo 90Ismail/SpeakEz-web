@@ -16,7 +16,7 @@ import { haversineMeters, type LatLng } from "./geo";
 import { googleMapStyle } from "./mapStyle";
 import { CLUSTERS, NotePin, PinCluster, pinMarkerGeometry, pinStateFor, YouAreHere } from "./NotePins";
 import { SEED_NOTES, seedNoteById } from "./seedNotes";
-import { fonts, radius, space, type, useTheme } from "./theme";
+import { fonts, radius, space, type, useTheme, useThemeMode } from "./theme";
 import { VoiceCard } from "./VoiceCard";
 import { ZONES } from "./zones";
 
@@ -27,6 +27,7 @@ const FALLBACK_LANDMARK = "Northrop Mall";
 
 export function MapScreen() {
   const theme = useTheme();
+  const mode = useThemeMode();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const mapRef = useRef<MapView | null>(null);
@@ -107,7 +108,7 @@ export function MapScreen() {
         provider={usesGoogle ? PROVIDER_GOOGLE : undefined}
         initialRegion={DEFAULT_CAMERA}
         mapType={usesGoogle ? "standard" : "mutedStandard"}
-        customMapStyle={usesGoogle ? googleMapStyle("light") : undefined}
+        customMapStyle={usesGoogle ? googleMapStyle(mode) : undefined}
         showsPointsOfInterests={!usesGoogle}
         mapPadding={MAP_PADDING}
         onPress={handleMapPress}

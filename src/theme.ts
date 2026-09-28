@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { createContext, createElement, useContext, useSyncExternalStore, type ReactNode } from "react";
 import { useColorScheme } from "react-native";
 
 export type ThemeMode = "light" | "dark";
@@ -202,9 +202,17 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
+const ThemeScopeContext = createContext<ThemeMode | null>(null);
+
+export function ThemeScope({ mode, children }: { mode: ThemeMode; children: ReactNode }) {
+  return createElement(ThemeScopeContext.Provider, { value: mode }, children);
+}
+
 export function useThemeMode(): ThemeMode {
+  const scoped = useContext(ThemeScopeContext);
   const systemMode: ThemeMode = useColorScheme() === "dark" ? "dark" : "light";
-  return useSyncExternalStore(subscribe, () => override ?? systemMode);
+  const globalMode = useSyncExternalStore(subscribe, () => override ?? systemMode);
+  return scoped ?? globalMode;
 }
 
 export function useTheme(): ColorTokens {
