@@ -1,0 +1,61 @@
+# Metro (Expo dev server) as a systemd service — the ONLY way judges can load
+# the app in Expo Go. EAS Update does not work in Expo Go, so the bundle has to
+# come from a live Metro server; this keeps one running on the VPS, restarted on
+# crash and on reboot.
+#
+# Installed by deploy/vps-bootstrap.sh, which substitutes the two placeholders
+# below before copying this file to /etc/systemd/system/speakez-metro.service:
+#
+#   __GO_HOST__   go.<dashed-ip>.sslip.io   (the public landing-page host)
+#   __API_HOST__  api.<dashed-ip>.sslip.io  (the public API host)
+#
+# Judges' phones open  exp://__GO_HOST__:8081  from the landing page QR code.
+[Unit]
+Description=SpeakEz Metro bundler (Expo dev server for Expo Go)
+Documentation=https://docs.expo.dev/more/expo-cli/#develop
+# docker.service because the API/db/redis stack it talks to comes up via compose;
+# network-online.target because Metro binds a public port at startup.
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/speakez
+
+# CI=1 stops Expo from waiting on an interactive terminal: without it `expo
+# start` tries to open a TTY menu, finds none under systemd, and hangs or exits.
+Environment=CI=1
+
+# REACT_NATIVE_PACKAGER_HOSTNAME is the load-bearing one. Metro bakes a host
+# into every bundle and asset URL it hands the client. Left alone it picks the
+# box's private/LAN address, which a judge's phone cannot reach, and Expo Go
+# fails with "Could not connect to the server". Pinning it to the public
+# hostname makes every URL Metro emits publicly resolvable.
+Environment=REACT_NATIVE_PACKAGER_HOSTNAME=__GO_HOST__
+
+# EXPO_PUBLIC_* vars are inlined into the JS bundle at BUILD time by Metro, so
+# they must exist in Metro's own environment. That is why they live here and not
+# in the .env the Docker containers read — the containers never build JS, and
+# nothing in the bundle can read a container's env at runtime.
+Environment=EXPO_PUBLIC_API_URL=https://__API_HOST__
+Environment=EXPO_PUBLIC_DEMO_URL=https://__GO_HOST__
+
+# DO NOT REMOVE. src/demo.ts seeds the app's starting position from these (see
+# its envCoord/demo-origin code). Without them the app opens with no position
+# near the seeded campus notes, every note card reads "Walk 1.2 km closer to
+# listen", and the demo has no payload at all — the judge sees an empty app.
+Environment=EXPO_PUBLIC_DEMO_LAT=44.97510
+Environment=EXPO_PUBLIC_DEMO_LNG=-93.23580
+
+# npx (not `npm start`) so systemd owns the node process directly and Restart
+# actually restarts Metro rather than a dead npm wrapper.
+ExecStart=/usr/bin/npx expo start --port 8081
+Restart=always
+RestartSec=3
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=speakez-metro
+
+[Install]
+WantedBy=multi-user.target

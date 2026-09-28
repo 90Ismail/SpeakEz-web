@@ -16,3 +16,23 @@
 		health_interval 30s
 	}
 }
+
+# The judge-facing landing page: the QR code and the exp:// handoff into Expo Go.
+# GO_HOST=go.<ip-with-dashes>.sslip.io, same trick as API_HOST above.
+#
+# Note the files are NOT in this container's image or in a named volume: they are
+# on the HOST at /srv/speakez-go, installed there by deploy/vps-bootstrap.sh from
+# deploy/landing/. docker-compose.prod.yml therefore bind-mounts that host path
+# read-only into the caddy service at the same path. Re-running the bootstrap
+# refreshes the page with no Caddy restart needed.
+#
+# The fallback is go.localhost, not localhost: API_HOST also falls back to
+# localhost, and two site blocks with the same address make Caddy refuse to
+# start. This way a missing GO_HOST degrades to an unused local name instead of
+# taking the API down with it.
+{$GO_HOST:go.localhost} {
+	encode gzip
+
+	root * /srv/speakez-go
+	file_server
+}

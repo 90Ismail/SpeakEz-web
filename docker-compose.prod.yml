@@ -107,11 +107,20 @@ services:
     environment:
       # e.g. API_HOST=api.203-0-113-7.sslip.io (dots in the IP become dashes).
       API_HOST: ${API_HOST:-localhost}
+      # e.g. GO_HOST=go.203-0-113-7.sslip.io — the judge-facing landing page.
+      # Falls back to go.localhost rather than localhost so it can never collide
+      # with API_HOST's fallback (duplicate site addresses stop Caddy booting).
+      GO_HOST: ${GO_HOST:-go.localhost}
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The landing page lives on the HOST (deploy/vps-bootstrap.sh installs
+      # deploy/landing/ there), so bind-mount it read-only at the same path the
+      # Caddyfile's {$GO_HOST} block roots at. Re-running the bootstrap updates
+      # the page in place, no container restart.
+      - /srv/speakez-go:/srv/speakez-go:ro
       - caddydata:/data
       - caddyconfig:/config
     depends_on:
