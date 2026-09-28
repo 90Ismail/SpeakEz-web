@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { landmarkById } from "../src/campusLandmarks";
-import { FloatingNav } from "../src/components/FloatingNav";
+import { FloatingNav, NAV_HEIGHT } from "../src/components/FloatingNav";
 import { IconButton } from "../src/components/IconButton";
 import { formatDuration, ListRow, ListRowMore } from "../src/components/ListRow";
 import { NowPlayingBar } from "../src/components/NowPlayingBar";
@@ -79,9 +79,9 @@ export default function SavedAudioScreen() {
 
   const nowPlaying = SEED_NOTES[0];
   const totalSec = SEED_NOTES.reduce((sum, note) => sum + note.durationSec, 0);
-  const sub = `${SEED_NOTES.length} notes · about ${Math.floor(totalSec / 60)} minutes of listening`;
+  const sub = `Notes you saved from the map · ${SEED_NOTES.length} notes, about ${Math.floor(totalSec / 60)} min`;
   const navBottom = insets.bottom + 4;
-  const barBottom = navBottom + 62 + 14;
+  const barBottom = navBottom + NAV_HEIGHT + 14;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -105,7 +105,7 @@ export default function SavedAudioScreen() {
         contentContainerStyle={{ paddingBottom: barBottom + 56 + 24 }}
       >
         <View style={styles.titleBlock}>
-          <Text style={[styles.screenTitle, { color: theme.ink }]}>Saved Audio</Text>
+          <Text style={[styles.screenTitle, { color: theme.ink }]}>Saved</Text>
           <Text style={[styles.screenSub, { color: theme.ink2 }]}>{sub}</Text>
         </View>
         <View style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line }}>

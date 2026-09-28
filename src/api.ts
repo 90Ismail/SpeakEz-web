@@ -21,6 +21,7 @@ type ApiMapNote = {
   landmark: ApiLandmark;
   duration_sec: number | null;
   day_label: string;
+  reply_count?: number;
 };
 
 export class ApiError extends Error {
@@ -60,11 +61,25 @@ export type UnlockWord = {
   paragraph?: number;
 };
 
+/** A voice reply in the thread under an original post. */
+export type Reply = {
+  id: string;
+  body: string;
+  audioUrl: string | null;
+  durationSec: number;
+  dayLabel: string;
+};
+
 export type UnlockResult = {
   body: string[];
   words: UnlockWord[];
   audioUrl: string | null;
+  replies: Reply[];
 };
+
+function absoluteMediaUrl(url: string | null | undefined): string | null {
+  return url ? new URL(url, API_URL).toString() : null;
+}
 
 export async function unlockNote(
   id: string,
@@ -74,6 +89,13 @@ export async function unlockNote(
     body: string;
     words: UnlockWord[] | null;
     audio_url: string | null;
+    replies?: {
+      id: string;
+      body: string;
+      audio_url: string | null;
+      duration_sec: number | null;
+      day_label: string;
+    }[];
   }>(`/notes/${id}/unlock`, {
     method: "POST",
     body: JSON.stringify({ lat: position.latitude, lng: position.longitude }),
@@ -84,7 +106,14 @@ export async function unlockNote(
       .map((paragraph) => paragraph.trim())
       .filter((paragraph) => paragraph.length > 0),
     words: data.words ?? [],
-    audioUrl: data.audio_url ? new URL(data.audio_url, API_URL).toString() : null,
+    audioUrl: absoluteMediaUrl(data.audio_url),
+    replies: (data.replies ?? []).map((reply) => ({
+      id: reply.id,
+      body: reply.body,
+      audioUrl: absoluteMediaUrl(reply.audio_url),
+      durationSec: reply.duration_sec ?? 0,
+      dayLabel: reply.day_label,
+    })),
   };
 }
 
@@ -101,5 +130,17 @@ export async function fetchMapNotes(bounds: MapBounds): Promise<MapNote[]> {
     coordinate: { latitude: note.landmark.lat, longitude: note.landmark.lng },
     durationSec: note.duration_sec ?? 0,
     dayLabel: note.day_label,
+    replyCount: note.reply_count ?? 0,
   }));
+}
+
+export type DailyPrompt = {
+  id: number | null;
+  text: string;
+};
+
+/** Today's voice journal prompt. Answers are journal-only; the API never puts them on the map. */
+export async function fetchTodayPrompt(): Promise<DailyPrompt> {
+  const data = await request<{ id: number; text: string; date: string }>("/prompts/today");
+  return { id: data.id, text: data.text };
 }

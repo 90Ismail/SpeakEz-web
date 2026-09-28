@@ -7,12 +7,14 @@ from ..auth.deps import CurrentUser, current_user
 from ..db import get_session
 from ..schemas import (
     MapResponse,
+    PromptOut,
     PublishRequest,
     PublishResponse,
     UnlockRequest,
     UnlockResponse,
 )
 from ..services import notes as notes_service
+from ..services import prompts as prompts_service
 from ..services import publish as publish_service
 from ..services import unlock as unlock_service
 
@@ -55,6 +57,15 @@ async def unlock(
             status_code=403, detail="Too far from your last unlock to be here yet"
         ) from exc
     return UnlockResponse(**result)
+
+
+@router.get("/prompts/today", response_model=PromptOut)
+async def prompt_today(session: AsyncSession = Depends(get_session)) -> PromptOut:
+    """Today's voice journal prompt. Answers are journal-only and never go on the map."""
+    try:
+        return await prompts_service.today_prompt(session)
+    except prompts_service.NoPrompts as exc:
+        raise HTTPException(status_code=404, detail="No prompts yet") from exc
 
 
 @router.post("/notes/{note_id}/publish", response_model=PublishResponse)

@@ -61,7 +61,7 @@ async def test_unlock_route_never_returns_non_live_note(monkeypatch, status):
     )
 
     async def note_summary(session, note_id):
-        return (status, "walter-library", "Secret body.", None, "audios/secret.m4a")
+        return (status, "public", "walter-library", "Secret body.", None, "audios/secret.m4a")
 
     async def within_radius(session, landmark_id, lat, lng, radius_m):
         return True

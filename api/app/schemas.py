@@ -17,6 +17,7 @@ class MapNoteOut(BaseModel):
     landmark: LandmarkOut
     duration_sec: int | None
     day_label: str
+    reply_count: int = 0
 
 
 class MapResponse(BaseModel):
@@ -41,10 +42,27 @@ class WordOut(BaseModel):
     paragraph: int | None = None
 
 
+class ReplyOut(BaseModel):
+    id: uuid.UUID
+    body: str
+    audio_url: str | None = None
+    duration_sec: int | None = None
+    day_label: str
+
+
 class UnlockResponse(BaseModel):
     body: str
     words: list[WordOut] | None = None
     audio_url: str | None = None
+    # The thread under the original post, oldest first.
+    replies: list[ReplyOut] = Field(default_factory=list)
+
+
+class PromptOut(BaseModel):
+    id: int
+    text: str
+    # Campus date the prompt is for, e.g. "2026-09-28".
+    date: str
 
 
 class PublishRequest(BaseModel):

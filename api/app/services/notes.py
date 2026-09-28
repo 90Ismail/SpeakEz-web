@@ -82,8 +82,9 @@ async def map_notes(session: AsyncSession, bbox: Bbox) -> list[MapNoteOut]:
                 landmark=LandmarkOut(id=landmark.id, name=landmark.name, lat=lat, lng=lng),
                 duration_sec=note.duration_sec,
                 day_label=day_label(note.created_at, now),
+                reply_count=reply_count or 0,
             ).model_dump(mode="json")
-            for note, landmark, lat, lng in rows
+            for note, landmark, lat, lng, reply_count in rows
         ]
 
     cached = await get_or_set(map_cache_key(bbox), MAP_CACHE_TTL_SECONDS, load)

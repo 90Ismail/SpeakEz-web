@@ -13,10 +13,11 @@ import {
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { unlockNote } from "../../src/api";
+import { unlockNote, type Reply } from "../../src/api";
 import { landmarkById, type CampusLandmark } from "../../src/campusLandmarks";
 import { IconButton } from "../../src/components/IconButton";
 import { ReactionButton } from "../../src/components/ReactionButton";
+import { ReplyThread } from "../../src/components/ReplyThread";
 import { Waveform } from "../../src/components/Waveform";
 import { USE_GOOGLE_ON_IOS } from "../../src/config";
 import { formatDistanceUpper, haversineMeters, type LatLng } from "../../src/geo";
@@ -230,6 +231,7 @@ export default function StoryScreen() {
   const [body, setBody] = useState<string[]>(note?.body ?? []);
   const [words, setWords] = useState<WordTiming[]>([]);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [replies, setReplies] = useState<Reply[]>([]);
   const [access, setAccess] = useState<"checking" | "unlocked" | "locked">(() => {
     if ((note?.body.length ?? 0) > 0) return "unlocked";
     if (!position || unlockedParam === "0") return "locked";
@@ -245,6 +247,7 @@ export default function StoryScreen() {
         setBody(result.body);
         setWords(result.words);
         setAudioUrl(result.audioUrl);
+        setReplies(result.replies);
         setAccess("unlocked");
       })
       .catch(() => {
@@ -529,6 +532,22 @@ export default function StoryScreen() {
                       </Text>
                     )}
                   </View>
+                  {note ? (
+                    <ReplyThread
+                      replies={replies}
+                      placeName={landmark?.name ?? "this spot"}
+                      onReply={() =>
+                        router.push({
+                          pathname: "/record",
+                          params: {
+                            replyTo: note.id,
+                            replyTitle: note.title,
+                            replyPlace: landmark?.name ?? "this spot",
+                          },
+                        })
+                      }
+                    />
+                  ) : null}
                   {next && (
                     <View style={styles.section}>
                       <Text style={[styles.sectionLabel, { color: theme.ink2 }]}>Continue walking</Text>
