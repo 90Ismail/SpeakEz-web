@@ -8,8 +8,9 @@ import yaml
 
 from app.models import ModerationLog
 from app.repositories import moderation as moderation_repo
+from app.repositories import notes as notes_repo
 from app.services import safety
-from app.services.safety import check_transcript, record_verdict
+from app.services.safety import apply_transcript_verdict, check_transcript, record_verdict
 
 NOTE_ID = uuid.uuid4()
 
@@ -156,6 +157,14 @@ class FakeSession:
     def __init__(self):
         self.added = []
         self.flushed = False
+        self.commits = 0
+        self.rollbacks = 0
+
+    async def commit(self):
+        self.commits += 1
+
+    async def rollback(self):
+        self.rollbacks += 1
 
     def add(self, row):
         self.added.append(row)
@@ -225,3 +234,46 @@ def test_check_transcript_import_stays_free_of_the_database():
         "assert not any(m.startswith(('sqlalchemy', 'app.db', 'app.config', 'redis')) for m in sys.modules)"
     )
     subprocess.run([sys.executable, "-c", code], check=True, cwd=Path(__file__).resolve().parent.parent)
+
+
+def patch_finish_processing(monkeypatch, processing=True):
+    changes = []
+
+    async def finish_processing(session, note_id, status):
+        if processing:
+            changes.append((note_id, status))
+        return processing
+
+    monkeypatch.setattr(notes_repo, "finish_processing", finish_processing)
+    return changes
+
+
+@pytest.mark.parametrize(
+    "text,decision,label",
+    [
+        ("Walked past Northrop tonight.", "draft", None),
+        ("I want to unalive myself", "held", "self_harm.unalive"),
+        ("I'm going to shoot up Coffman tomorrow.", "blocked", "threat.attack_place"),
+    ],
+)
+async def test_apply_transcript_verdict_checks_logs_sets_status_and_commits(
+    monkeypatch, text, decision, label
+):
+    logged = patch_insert(monkeypatch)
+    changes = patch_finish_processing(monkeypatch)
+    session = FakeSession()
+    verdict = await apply_transcript_verdict(session, NOTE_ID, text)
+    assert (verdict.decision, verdict.label) == (decision, label)
+    assert logged == [(NOTE_ID, "lexicon.transcript", label, decision)]
+    assert changes == [(NOTE_ID, decision)]
+    assert session.commits == 1
+
+
+async def test_apply_transcript_verdict_leaves_non_processing_notes_alone(monkeypatch):
+    patch_insert(monkeypatch)
+    patch_finish_processing(monkeypatch, processing=False)
+    session = FakeSession()
+    with pytest.raises(safety.NoteNotProcessing):
+        await apply_transcript_verdict(session, NOTE_ID, "I want to unalive myself")
+    assert session.commits == 0
+    assert session.rollbacks == 1

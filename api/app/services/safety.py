@@ -164,3 +164,25 @@ async def record_verdict(
     await moderation_repo.insert_log(
         session, note_id, f"{verdict.layer}.{source}", verdict.label, verdict.decision
     )
+
+
+class NoteNotProcessing(Exception):
+    """The note already has a verdict (or never existed); its status is left as it was."""
+
+
+async def apply_transcript_verdict(
+    session: "AsyncSession", note_id: uuid.UUID, text: str
+) -> SafetyVerdict:
+    """The whole transcript gate in one call: check, log, set the note's status, commit.
+
+    Only moves a note out of "processing", so a re-run job can't pull a live or held note back.
+    """
+    from ..repositories import notes as notes_repo
+
+    verdict = check_transcript(text)
+    await record_verdict(session, note_id, verdict, source="transcript")
+    if not await notes_repo.finish_processing(session, note_id, verdict.decision):
+        await session.rollback()
+        raise NoteNotProcessing
+    await session.commit()
+    return verdict

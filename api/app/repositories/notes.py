@@ -78,3 +78,11 @@ async def set_draft_status(session: AsyncSession, note_id: uuid.UUID, status: st
     await session.execute(
         update(Note).where(Note.id == note_id, Note.status == "draft").values(status=status)
     )
+
+
+async def finish_processing(session: AsyncSession, note_id: uuid.UUID, status: str) -> bool:
+    """Move a "processing" note to its safety verdict's status. False if it wasn't processing."""
+    result = await session.execute(
+        update(Note).where(Note.id == note_id, Note.status == "processing").values(status=status)
+    )
+    return result.rowcount > 0
