@@ -16,7 +16,7 @@ import { haversineMeters, type LatLng } from "./geo";
 import { googleMapStyle } from "./mapStyle";
 import { CLUSTERS, NotePin, PinCluster, pinMarkerGeometry, pinStateFor, YouAreHere } from "./NotePins";
 import { SEED_NOTES, seedNoteById } from "./seedNotes";
-import { fonts, fontWeight, radius, space, type, useTheme } from "./theme";
+import { fonts, radius, space, type, useTheme } from "./theme";
 import { VoiceCard } from "./VoiceCard";
 import { ZONES } from "./zones";
 
@@ -289,10 +289,8 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   headline: {
-    fontFamily: fonts.sans,
-    fontSize: type.title,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.title },
   recenter: {
     position: "absolute",
     right: space.gutter,
@@ -304,10 +302,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   zoneLabel: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.meta,
-    fontWeight: fontWeight.bold,
     letterSpacing: 1.4,
-    textAlign: "center",
-  },
+    textAlign: "center" },
 });

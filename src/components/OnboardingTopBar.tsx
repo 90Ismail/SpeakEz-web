@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { fonts, fontWeight, type, useTheme } from "../theme";
+import { fonts, type, useTheme } from "../theme";
 import { IconButton } from "./IconButton";
 
 type OnboardingTopBarProps = {
@@ -44,10 +44,8 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     textAlign: "center",
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.semibold,
-  },
+    fontFamily: fonts.sansSemibold,
+    fontSize: type.body },
   trailingSpacer: {
     width: 44,
   },

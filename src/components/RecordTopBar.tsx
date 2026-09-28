@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { fonts, fontWeight, space, type, useTheme } from "../theme";
+import { fonts, space, type, useTheme } from "../theme";
 import { IconButton } from "./IconButton";
 
 type RecordTopBarProps = {
@@ -44,10 +44,8 @@ const styles = StyleSheet.create({
     left: space.gutter,
     right: space.gutter,
     textAlign: "center",
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.semibold,
-  },
+    fontFamily: fonts.sansSemibold,
+    fontSize: type.body },
   trailing: {
     minWidth: 44,
     height: 44,

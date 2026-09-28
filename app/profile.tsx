@@ -8,7 +8,7 @@ import { IconButton } from "../src/components/IconButton";
 import { DEFAULT_CAMERA, USE_GOOGLE_ON_IOS } from "../src/config";
 import { googleMapStyle } from "../src/mapStyle";
 import { SEED_NOTES } from "../src/seedNotes";
-import { fonts, fontWeight, motion, space, type, useTheme, useThemeMode } from "../src/theme";
+import { fonts, motion, space, type, useTheme, useThemeMode } from "../src/theme";
 
 const DRAWER_WIDTH = 320;
 const MY_POSTS_COUNT = 2;
@@ -220,16 +220,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.title,
-    fontWeight: fontWeight.bold,
-    letterSpacing: -0.7,
-  },
+    letterSpacing: -0.7 },
   who: {
     fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.body },
   verified: {
     flexDirection: "row",
     alignItems: "center",
@@ -237,10 +233,8 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   verifiedLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.support },
   navItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -254,9 +248,7 @@ const styles = StyleSheet.create({
   },
   navLabel: {
     flex: 1,
-    fontFamily: fonts.sans,
-    fontWeight: fontWeight.regular,
-  },
+    fontFamily: fonts.sans },
   navLabelPrimary: {
     fontSize: type.heading,
   },
@@ -265,9 +257,7 @@ const styles = StyleSheet.create({
   },
   navMeta: {
     fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.body },
   pressed: {
     opacity: 0.7,
   },

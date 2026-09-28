@@ -4,8 +4,14 @@ import { useColorScheme } from "react-native";
 export type ThemeMode = "light" | "dark";
 
 export const fonts = {
-  sans: "Karla",
-  serif: "Newsreader",
+  sans: "Karla_400Regular",
+  sansMedium: "Karla_500Medium",
+  sansSemibold: "Karla_600SemiBold",
+  sansBold: "Karla_700Bold",
+  serif: "Newsreader_400Regular",
+  serifMedium: "Newsreader_500Medium",
+  serifSemibold: "Newsreader_600SemiBold",
+  serifBold: "Newsreader_700Bold",
 } as const;
 
 export const fontWeight = {

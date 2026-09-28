@@ -11,7 +11,7 @@ import { OnboardingMap } from "../../src/components/OnboardingMap";
 import { setLocationChoice, type LocationChoice } from "../../src/components/OnboardingPrefs";
 import { OnboardingTopBar } from "../../src/components/OnboardingTopBar";
 import { CAMPUS_CENTER, UNLOCK_RADIUS_M } from "../../src/config";
-import { fonts, fontWeight, radius, space, type, useTheme } from "../../src/theme";
+import { fonts, radius, space, type, useTheme } from "../../src/theme";
 
 const MAP_WINDOW_HEIGHT = 230;
 const RADIUS_DIAMETER_PT = 170;
@@ -183,10 +183,8 @@ const styles = StyleSheet.create({
     borderRadius: 9,
   },
   chipText: {
-    fontFamily: fonts.sans,
-    fontSize: type.meta,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.meta },
   content: {
     flexGrow: 1,
     paddingTop: 28,
@@ -194,18 +192,14 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   heading: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.display,
-    fontWeight: fontWeight.bold,
     lineHeight: 35,
-    letterSpacing: -1,
-  },
+    letterSpacing: -1 },
   body: {
     fontFamily: fonts.sans,
     fontSize: type.body,
-    fontWeight: fontWeight.regular,
-    lineHeight: 22.5,
-  },
+    lineHeight: 22.5 },
   assurances: {
     gap: 12,
   },
@@ -217,9 +211,7 @@ const styles = StyleSheet.create({
   assuranceLabel: {
     fontFamily: fonts.sans,
     fontSize: type.body,
-    fontWeight: fontWeight.regular,
-    lineHeight: 21,
-  },
+    lineHeight: 21 },
   footer: {
     marginTop: "auto",
     width: "100%",
@@ -229,7 +221,5 @@ const styles = StyleSheet.create({
   systemNote: {
     fontFamily: fonts.sans,
     fontSize: type.support,
-    fontWeight: fontWeight.regular,
-    textAlign: "center",
-  },
+    textAlign: "center" },
 });

@@ -1,5 +1,5 @@
 import { Text, type StyleProp, type TextStyle } from "react-native";
-import { fonts, fontWeight, type, useTheme } from "../theme";
+import { fonts, type, useTheme } from "../theme";
 
 type CapsTone = "ink" | "ink2" | "ink3" | "accent" | "danger";
 
@@ -25,12 +25,10 @@ export function Caps({ children, tone = "ink2", size = type.meta, style, numberO
       numberOfLines={numberOfLines}
       style={[
         {
-          fontFamily: fonts.sans,
+          fontFamily: fonts.sansBold,
           fontSize: size,
-          fontWeight: fontWeight.bold,
           letterSpacing: 0.8,
-          color: colors[tone],
-        },
+          color: colors[tone] },
         style,
       ]}
     >

@@ -7,7 +7,7 @@ import { Waveform } from "./components/Waveform";
 import { UNLOCK_RADIUS_M } from "./config";
 import { formatDistance } from "./geo";
 import type { SeedNote } from "./seedNotes";
-import { fonts, fontWeight, lineHeight, motion, radius, type, useTheme } from "./theme";
+import { fonts, lineHeight, motion, radius, type, useTheme } from "./theme";
 
 const CARD_HEIGHT = 460;
 const FADE_OPACITIES = [0.2, 0.45, 0.7, 0.9];
@@ -197,19 +197,13 @@ const styles = StyleSheet.create({
   },
   distance: {
     fontFamily: fonts.sans,
-    fontSize: type.meta,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.meta },
   title: {
-    fontFamily: fonts.sans,
-    fontSize: type.title,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.title },
   meta: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   player: {
     flexDirection: "row",
     alignItems: "center",
@@ -228,18 +222,14 @@ const styles = StyleSheet.create({
   },
   duration: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   excerpt: {
     paddingTop: 14,
   },
   excerptText: {
     fontFamily: fonts.serif,
     fontSize: type.reading,
-    lineHeight: lineHeight.reading,
-    fontWeight: fontWeight.regular,
-  },
+    lineHeight: lineHeight.reading },
   excerptFade: {
     position: "absolute",
     left: 0,
@@ -254,7 +244,5 @@ const styles = StyleSheet.create({
   },
   lockedText: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
 });

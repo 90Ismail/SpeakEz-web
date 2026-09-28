@@ -8,7 +8,7 @@ import { OnboardingDots } from "../../src/components/OnboardingDots";
 import { OnboardingFade } from "../../src/components/OnboardingFade";
 import { OnboardingMap } from "../../src/components/OnboardingMap";
 import { CAMPUS_CENTER, DEFAULT_CAMERA, UNLOCK_RADIUS_M } from "../../src/config";
-import { fonts, fontWeight, space, type, useTheme } from "../../src/theme";
+import { fonts, space, type, useTheme } from "../../src/theme";
 
 export default function WelcomeScreen() {
   const theme = useTheme();
@@ -78,18 +78,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1.8,
   },
   headline: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.display,
-    fontWeight: fontWeight.bold,
     lineHeight: 35,
-    letterSpacing: -1,
-  },
+    letterSpacing: -1 },
   body: {
     fontFamily: fonts.sans,
     fontSize: type.body,
-    fontWeight: fontWeight.regular,
-    lineHeight: 22.5,
-  },
+    lineHeight: 22.5 },
   footer: {
     marginTop: "auto",
     width: "100%",
@@ -105,12 +101,8 @@ const styles = StyleSheet.create({
   },
   signInLead: {
     fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.body },
   signInLink: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.body },
 });

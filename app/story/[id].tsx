@@ -26,7 +26,7 @@ import { googleMapStyle } from "../../src/mapStyle";
 import { formatClock, formatRate, useMockPlayer } from "../../src/Player";
 import { REACTIONS, type ReactionType } from "../../src/reactions";
 import { SEED_NOTES, seedNoteById, type SeedNote } from "../../src/seedNotes";
-import { fonts, fontWeight, lineHeight, radius, space, type, useTheme, useThemeMode } from "../../src/theme";
+import { fonts, lineHeight, radius, space, type, useTheme, useThemeMode } from "../../src/theme";
 import { buildTimings, currentParagraphAt } from "../../src/transcript";
 
 const MAP_LATITUDE_DELTA = 0.006;
@@ -606,12 +606,10 @@ const styles = StyleSheet.create({
   article: { paddingTop: 16, paddingHorizontal: space.gutter, paddingBottom: 32 },
   headlineBlock: { marginTop: 12, marginBottom: 16 },
   headline: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.display,
-    fontWeight: fontWeight.bold,
     lineHeight: 35,
-    letterSpacing: -0.8,
-  },
+    letterSpacing: -0.8 },
   metaBlock: { paddingTop: 10, paddingBottom: 20 },
   metaText: { fontFamily: fonts.sans, fontSize: type.support },
   audioBlock: {
@@ -636,11 +634,9 @@ const styles = StyleSheet.create({
   nextCircle: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   nextText: { flex: 1, gap: 3 },
   nextTitle: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.body,
-    fontWeight: fontWeight.bold,
-    lineHeight: 19,
-  },
+    lineHeight: 19 },
   support: { paddingTop: 14, minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8 },
   supportText: { fontFamily: fonts.sans, fontSize: type.support, flex: 1 },
   lockedRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 12 },
@@ -653,11 +649,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   nowTitle: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.body,
-    fontWeight: fontWeight.bold,
-    lineHeight: 18,
-  },
+    lineHeight: 18 },
   nowControls: { flexDirection: "row", alignItems: "center", gap: 14, paddingTop: 6 },
   nowWave: { flex: 1 },
   nowTime: { fontFamily: fonts.sans, fontSize: type.meta },
@@ -699,9 +693,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   missingButtonText: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.support,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 0.8,
-  },
+    letterSpacing: 0.8 },
 });

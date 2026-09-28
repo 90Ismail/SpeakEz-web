@@ -5,7 +5,7 @@ import { landmarkById } from "./campusLandmarks";
 import { CHIP_RADIUS_M, UNLOCK_RADIUS_M } from "./config";
 import { formatDistance, formatDistanceUpper, type LatLng } from "./geo";
 import type { SeedNote } from "./seedNotes";
-import { fonts, fontWeight, radius, type, useTheme } from "./theme";
+import { fonts, radius, type, useTheme } from "./theme";
 
 export type PinState = "dot" | "label" | "unlocked";
 
@@ -197,7 +197,7 @@ export function PinLabel({ note, distance, selected, onPress }: NotePinProps) {
               {
                 color: selected ? theme.surface : theme.ink2,
                 fontSize: selected ? type.body : type.support,
-                fontWeight: selected ? fontWeight.bold : fontWeight.semibold,
+                fontFamily: selected ? fonts.sansBold : fonts.sansSemibold,
               },
             ]}
           >
@@ -264,7 +264,7 @@ export function PinUnlocked({ note, distance, selected, onPress }: NotePinProps)
                 flexShrink: 1,
                 color: selected ? theme.surface : theme.ink,
                 fontSize: selected ? type.body : type.support,
-                fontWeight: fontWeight.bold,
+                fontFamily: fonts.sansBold,
               },
             ]}
           >
@@ -330,14 +330,11 @@ const styles = StyleSheet.create({
   },
   chipTitle: {
     fontFamily: fonts.sans,
-    flexShrink: 1,
-  },
+    flexShrink: 1 },
   unlockedCaption: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.meta,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 1,
-  },
+    letterSpacing: 1 },
   cluster: {
     flexDirection: "row",
     alignItems: "center",
@@ -359,9 +356,7 @@ const styles = StyleSheet.create({
   },
   clusterLabel: {
     fontFamily: fonts.sans,
-    fontSize: type.meta,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.meta },
   youAreHere: {
     width: 40,
     height: 40,

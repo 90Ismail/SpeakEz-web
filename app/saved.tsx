@@ -9,7 +9,7 @@ import { IconButton } from "../src/components/IconButton";
 import { formatDuration, ListRow } from "../src/components/ListRow";
 import { NowPlayingBar } from "../src/components/NowPlayingBar";
 import { SEED_NOTES, type SeedNote } from "../src/seedNotes";
-import { fonts, fontWeight, type, useTheme } from "../src/theme";
+import { fonts, type, useTheme } from "../src/theme";
 
 type SavedState = "playing" | "heard" | "paused" | "locked" | "new";
 
@@ -193,10 +193,8 @@ const styles = StyleSheet.create({
   },
   topBarTitle: {
     flex: 1,
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.semibold,
-  },
+    fontFamily: fonts.sansSemibold,
+    fontSize: type.body },
   titleBlock: {
     paddingHorizontal: 24,
     paddingTop: 12,
@@ -204,16 +202,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   screenTitle: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.display,
-    fontWeight: fontWeight.bold,
-    letterSpacing: -1,
-  },
+    letterSpacing: -1 },
   screenSub: {
     fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.body },
   playCircle: {
     width: 44,
     height: 44,
@@ -229,11 +223,9 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   metaStrong: {
-    fontWeight: fontWeight.bold,
+    fontFamily: fonts.sansBold,
   },
   fade: {
     position: "absolute",

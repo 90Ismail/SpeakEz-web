@@ -5,7 +5,7 @@ import MapView, { Circle, Marker } from "react-native-maps";
 import type { CampusLandmark } from "../campusLandmarks";
 import { UNLOCK_RADIUS_M, USE_GOOGLE_ON_IOS } from "../config";
 import { googleMapStyle } from "../mapStyle";
-import { fonts, fontWeight, radius, space, type, useTheme, useThemeMode } from "../theme";
+import { fonts, radius, space, type, useTheme, useThemeMode } from "../theme";
 import type { CampusZone } from "../zones";
 import { IconButton } from "./IconButton";
 
@@ -260,11 +260,9 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   zoneLabel: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.meta,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 1.4,
-  },
+    letterSpacing: 1.4 },
   pin: {
     flexDirection: "row",
     alignItems: "center",
@@ -287,10 +285,8 @@ const styles = StyleSheet.create({
   },
   pinLabel: {
     maxWidth: 190,
-    fontFamily: fonts.sans,
-    fontSize: 11.5,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: 11.5 },
   sheet: {
     flex: 1,
     gap: 12,
@@ -305,13 +301,11 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   heading: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.title,
     lineHeight: type.title * 1.1,
     letterSpacing: -0.7,
-    fontWeight: fontWeight.bold,
-    marginBottom: space.xs,
-  },
+    marginBottom: space.xs },
   option: {
     flexDirection: "row",
     alignItems: "center",
@@ -331,16 +325,12 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   optionTitle: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.body },
   optionDesc: {
     fontFamily: fonts.sans,
     fontSize: type.support,
-    lineHeight: type.support * 1.45,
-    fontWeight: fontWeight.regular,
-  },
+    lineHeight: type.support * 1.45 },
   radio: {
     width: 20,
     height: 20,
@@ -364,8 +354,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   continueLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.body },
 });

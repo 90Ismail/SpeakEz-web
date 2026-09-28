@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
-import { fonts, fontWeight, radius, space, type, useTheme } from "../theme";
+import { fonts, radius, space, type, useTheme } from "../theme";
 import { Waveform } from "./Waveform";
 import { RecordControls, type RecordPrimaryMode } from "./RecordControls";
 
@@ -110,17 +110,13 @@ const styles = StyleSheet.create({
   },
   chipLabel: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   prompt: {
     paddingTop: space.lg,
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.display,
     lineHeight: type.display * 1.1,
-    letterSpacing: -0.8,
-    fontWeight: fontWeight.bold,
-  },
+    letterSpacing: -0.8 },
   live: {
     flex: 1,
     justifyContent: "center",
@@ -134,14 +130,10 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   elapsed: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.hero,
-    fontWeight: fontWeight.bold,
-    fontVariant: ["tabular-nums"],
-  },
+    fontVariant: ["tabular-nums"] },
   status: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
 });

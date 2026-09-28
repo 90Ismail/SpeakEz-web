@@ -7,7 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { fonts, fontWeight, radius, space, type, useTheme } from "../theme";
+import { fonts, radius, space, type, useTheme } from "../theme";
 import { Caps } from "./Caps";
 import { RecordTopBar } from "./RecordTopBar";
 
@@ -252,10 +252,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   discardLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.semibold,
-  },
+    fontFamily: fonts.sansSemibold,
+    fontSize: type.support },
   content: {
     paddingTop: space.md,
     paddingHorizontal: space.gutter,
@@ -274,12 +272,10 @@ const styles = StyleSheet.create({
   titleInput: {
     flex: 1,
     padding: 0,
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.title,
     lineHeight: type.title * 1.1,
-    letterSpacing: -0.7,
-    fontWeight: fontWeight.bold,
-  },
+    letterSpacing: -0.7 },
   suggestions: {
     gap: space.sm,
     paddingTop: 12,
@@ -302,9 +298,7 @@ const styles = StyleSheet.create({
   chipLabel: {
     fontFamily: fonts.sans,
     fontSize: type.body,
-    fontStyle: "italic",
-    fontWeight: fontWeight.regular,
-  },
+    fontStyle: "italic" },
   audio: {
     flexDirection: "row",
     alignItems: "center",
@@ -324,14 +318,10 @@ const styles = StyleSheet.create({
   },
   audioTitle: {
     fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.body },
   audioSub: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   transcript: {
     gap: space.md,
     paddingTop: space.lg,
@@ -344,15 +334,11 @@ const styles = StyleSheet.create({
   },
   editText: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   paragraph: {
     fontFamily: fonts.serif,
     fontSize: type.reading,
-    lineHeight: 27,
-    fontWeight: fontWeight.regular,
-  },
+    lineHeight: 27 },
   redaction: {
     gap: 10,
     paddingVertical: 14,
@@ -367,9 +353,7 @@ const styles = StyleSheet.create({
   redactionLabel: {
     flex: 1,
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   actions: {
     gap: 14,
     paddingTop: space.sm,
@@ -384,10 +368,8 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   publishLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.body },
   draft: {
     minHeight: 44,
     alignItems: "center",
@@ -395,7 +377,5 @@ const styles = StyleSheet.create({
   },
   draftLabel: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
 });

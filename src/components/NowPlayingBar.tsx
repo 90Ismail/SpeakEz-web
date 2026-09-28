@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View, type DimensionValue, type StyleProp, type ViewStyle } from "react-native";
-import { fonts, fontWeight, radius, type, useTheme } from "../theme";
+import { fonts, radius, type, useTheme } from "../theme";
 
 type NowPlayingBarProps = {
   title: string;
@@ -81,10 +81,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.support },
   track: {
     height: 3,
     borderRadius: 2,
@@ -96,7 +94,5 @@ const styles = StyleSheet.create({
   },
   time: {
     fontFamily: fonts.sans,
-    fontSize: type.meta,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.meta },
 });

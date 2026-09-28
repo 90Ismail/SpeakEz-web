@@ -4,7 +4,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-na
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Caps } from "../src/components/Caps";
 import { OnboardingTopBar } from "../src/components/OnboardingTopBar";
-import { fonts, fontWeight, radius, space, type, useTheme } from "../src/theme";
+import { fonts, radius, space, type, useTheme } from "../src/theme";
 
 type CareRow = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -169,20 +169,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   headline: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.display,
-    fontWeight: fontWeight.bold,
     lineHeight: 35,
-    letterSpacing: -1,
-  },
+    letterSpacing: -1 },
   intro: {
     marginTop: 12,
     marginBottom: 20,
     fontFamily: fonts.sans,
     fontSize: type.body,
-    fontWeight: fontWeight.regular,
-    lineHeight: 23,
-  },
+    lineHeight: 23 },
   emergency: {
     minHeight: 44,
     flexDirection: "row",
@@ -195,9 +191,7 @@ const styles = StyleSheet.create({
   emergencyText: {
     flex: 1,
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   section: {
     paddingTop: 24,
   },
@@ -225,17 +219,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   rowTitle: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.heading,
-    fontWeight: fontWeight.bold,
     lineHeight: 21,
-    letterSpacing: -0.2,
-  },
+    letterSpacing: -0.2 },
   rowDescription: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   rowAction: {
     width: 44,
     height: 44,

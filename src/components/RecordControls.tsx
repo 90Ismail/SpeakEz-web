@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { fonts, fontWeight, space, type, useTheme } from "../theme";
+import { fonts, space, type, useTheme } from "../theme";
 
 export type RecordPrimaryMode = "record" | "stop" | "continue";
 
@@ -160,7 +160,5 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
 });

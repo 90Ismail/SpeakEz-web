@@ -7,7 +7,7 @@ import { Caps } from "../src/components/Caps";
 import { IconButton } from "../src/components/IconButton";
 import { formatDuration, ListRow } from "../src/components/ListRow";
 import { seedNoteById } from "../src/seedNotes";
-import { fonts, fontWeight, type, useTheme } from "../src/theme";
+import { fonts, type, useTheme } from "../src/theme";
 
 const LIVE_META: { id: string; fades: string }[] = [
   { id: "failing-first-semester", fades: "Fades in 27 days" },
@@ -211,21 +211,17 @@ const styles = StyleSheet.create({
   },
   topBarTitle: {
     flex: 1,
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.semibold,
-  },
+    fontFamily: fonts.sansSemibold,
+    fontSize: type.body },
   titleBlock: {
     paddingHorizontal: 24,
     paddingTop: 12,
     paddingBottom: 24,
   },
   screenTitle: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.display,
-    fontWeight: fontWeight.bold,
-    letterSpacing: -1,
-  },
+    letterSpacing: -1 },
   sectionHead: {
     paddingHorizontal: 24,
     paddingBottom: 8,
@@ -251,15 +247,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   listenDuration: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.body },
   listenRest: {
     fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.body },
   stateRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -275,10 +267,8 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   tagLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.support },
   responsesLink: {
     flexDirection: "row",
     alignItems: "center",
@@ -287,9 +277,7 @@ const styles = StyleSheet.create({
   },
   responsesLabel: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   primaryButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -300,10 +288,8 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
   },
   primaryLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.support },
   rowTrailing: {
     alignSelf: "flex-start",
   },
@@ -317,9 +303,7 @@ const styles = StyleSheet.create({
   fadedLabel: {
     flex: 1,
     fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.body },
   pressed: {
     opacity: 0.7,
   },

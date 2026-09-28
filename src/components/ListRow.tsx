@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { fonts, fontWeight, type, useTheme } from "../theme";
+import { fonts, type, useTheme } from "../theme";
 import { Caps } from "./Caps";
 
 export function formatDuration(durationSec: number): string {
@@ -109,12 +109,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1.3,
   },
   title: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.heading,
-    fontWeight: fontWeight.bold,
     letterSpacing: -0.2,
-    lineHeight: 21,
-  },
+    lineHeight: 21 },
   pressed: {
     opacity: 0.7,
   },

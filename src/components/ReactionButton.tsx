@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text } from "react-native";
-import { fonts, fontWeight, radius, type, useTheme } from "../theme";
+import { fonts, radius, type, useTheme } from "../theme";
 
 type ReactionButtonProps = {
   label: string;
@@ -43,8 +43,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   label: {
-    fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.semibold,
-  },
+    fontFamily: fonts.sansSemibold,
+    fontSize: type.support },
 });

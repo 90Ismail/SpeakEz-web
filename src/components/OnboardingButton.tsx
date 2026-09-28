@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
-import { fonts, fontWeight, radius, type, useTheme } from "../theme";
+import { fonts, radius, type, useTheme } from "../theme";
 
 type OnboardingButtonProps = {
   label: string;
@@ -86,10 +86,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   primaryLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.body },
   textButton: {
     minHeight: 44,
     alignItems: "center",
@@ -97,8 +95,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   textButtonLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.body },
 });

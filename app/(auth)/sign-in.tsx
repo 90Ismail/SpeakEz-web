@@ -16,7 +16,7 @@ import { Caps } from "../../src/components/Caps";
 import { OnboardingButton, OnboardingTextButton } from "../../src/components/OnboardingButton";
 import { OnboardingDots } from "../../src/components/OnboardingDots";
 import { OnboardingTopBar } from "../../src/components/OnboardingTopBar";
-import { fonts, fontWeight, radius, space, type, useTheme } from "../../src/theme";
+import { fonts, radius, space, type, useTheme } from "../../src/theme";
 
 const CODE_LENGTH = 6;
 
@@ -276,18 +276,14 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   heading: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.display,
-    fontWeight: fontWeight.bold,
     lineHeight: 35,
-    letterSpacing: -1,
-  },
+    letterSpacing: -1 },
   body: {
     fontFamily: fonts.sans,
     fontSize: type.body,
-    fontWeight: fontWeight.regular,
-    lineHeight: 22.5,
-  },
+    lineHeight: 22.5 },
   field: {
     gap: 8,
   },
@@ -306,22 +302,18 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 0,
     fontFamily: fonts.sans,
-    fontSize: type.body,
-  },
+    fontSize: type.body },
   inputSuffix: {
     fontFamily: fonts.sans,
-    fontSize: type.body,
-  },
+    fontSize: type.body },
   errorPanel: {
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: radius.xs,
   },
   errorText: {
-    fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.semibold,
-  },
+    fontFamily: fonts.sansSemibold,
+    fontSize: type.support },
   helper: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -331,9 +323,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.sans,
     fontSize: type.support,
-    fontWeight: fontWeight.regular,
-    lineHeight: 19,
-  },
+    lineHeight: 19 },
   checkboxRow: {
     minHeight: 44,
     flexDirection: "row",
@@ -350,9 +340,7 @@ const styles = StyleSheet.create({
   },
   checkboxLabel: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   keep: {
     paddingTop: 16,
     gap: 6,
@@ -364,9 +352,7 @@ const styles = StyleSheet.create({
   keepText: {
     fontFamily: fonts.sans,
     fontSize: type.body,
-    fontWeight: fontWeight.regular,
-    lineHeight: 22,
-  },
+    lineHeight: 22 },
   footer: {
     marginTop: "auto",
     width: "100%",
@@ -381,14 +367,10 @@ const styles = StyleSheet.create({
   },
   finePrintLead: {
     fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.support },
   finePrintLink: {
-    fontFamily: fonts.sans,
-    fontSize: type.support,
-    fontWeight: fontWeight.bold,
-  },
+    fontFamily: fonts.sansBold,
+    fontSize: type.support },
   stepTwoTop: {
     gap: 16,
     paddingTop: 4,
@@ -404,10 +386,8 @@ const styles = StyleSheet.create({
     height: 52,
     padding: 0,
     textAlign: "center",
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansSemibold,
     fontSize: type.title,
-    fontWeight: fontWeight.semibold,
     borderRadius: radius.xs,
-    borderWidth: 1,
-  },
+    borderWidth: 1 },
 });

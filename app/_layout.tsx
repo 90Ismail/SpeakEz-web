@@ -1,5 +1,10 @@
 import { Karla_400Regular, Karla_500Medium, Karla_600SemiBold, Karla_700Bold } from "@expo-google-fonts/karla";
-import { Newsreader_400Regular, Newsreader_500Medium } from "@expo-google-fonts/newsreader";
+import {
+  Newsreader_400Regular,
+  Newsreader_500Medium,
+  Newsreader_600SemiBold,
+  Newsreader_700Bold,
+} from "@expo-google-fonts/newsreader";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";

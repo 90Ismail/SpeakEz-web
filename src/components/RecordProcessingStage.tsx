@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
-import { fonts, fontWeight, space, type, useTheme } from "../theme";
+import { fonts, space, type, useTheme } from "../theme";
 import { Waveform } from "./Waveform";
 
 const STEPS = [
@@ -134,17 +134,13 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   title: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansBold,
     fontSize: type.display,
     lineHeight: type.display * 1.1,
-    letterSpacing: -0.8,
-    fontWeight: fontWeight.bold,
-  },
+    letterSpacing: -0.8 },
   sub: {
     fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.body },
   step: {
     height: 52,
     flexDirection: "row",
@@ -179,7 +175,5 @@ const styles = StyleSheet.create({
   stepLabel: {
     flex: 1,
     fontFamily: fonts.sans,
-    fontSize: type.body,
-    fontWeight: fontWeight.regular,
-  },
+    fontSize: type.body },
 });
