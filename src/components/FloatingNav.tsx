@@ -20,7 +20,7 @@ type NavItem = {
 
 /** Map and your own notes on the left, record in the middle, other people's notes and you on the right. */
 const ITEMS: NavItem[] = [
-  { key: "map", icon: "map-outline", activeIcon: "map", label: "Map", hint: "Voice notes around campus", route: "/", kind: "tab", accent: false },
+  { key: "map", icon: "location-outline", activeIcon: "location", label: "Map", hint: "Voice notes around campus", route: "/", kind: "tab", accent: false },
   { key: "journal", icon: "book-outline", activeIcon: "book", label: "Journal", hint: "Your posts, voice journal and drafts", route: "/journal", kind: "tab", accent: false },
   { key: "record", icon: "mic", activeIcon: "mic", label: "Record", hint: "Record a voice note", route: "/record", kind: "push", accent: true },
   { key: "saved", icon: "bookmark-outline", activeIcon: "bookmark", label: "Saved", hint: "Notes you saved from the map", route: "/saved", kind: "tab", accent: false },
