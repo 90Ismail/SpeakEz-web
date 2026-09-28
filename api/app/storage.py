@@ -20,6 +20,10 @@ class MissingMedia(Exception):
     pass
 
 
+class InvalidKey(MissingMedia):
+    """The key points outside the media directory (e.g. "../../app/main.py")."""
+
+
 class SignedUrlError(Exception):
     pass
 
@@ -28,18 +32,23 @@ def _root() -> Path:
     return Path(get_settings().media_dir).resolve()
 
 
-def resolve(key: str) -> Path:
+def _inside_root(key: str) -> Path:
     root = _root()
     target = (root / key).resolve()
     if not target.is_relative_to(root):
-        raise MissingMedia("key escapes the media directory")
+        raise InvalidKey("key escapes the media directory")
+    return target
+
+
+def resolve(key: str) -> Path:
+    target = _inside_root(key)
     if not target.is_file():
         raise MissingMedia(key)
     return target
 
 
 def save(key: str, data: bytes) -> None:
-    target = _root() / key
+    target = _inside_root(key)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
 
