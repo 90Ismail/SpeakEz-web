@@ -45,11 +45,15 @@ async def invalidate(prefix: str) -> int:
 
 
 async def incr_with_ttl(key: str, ttl: int) -> int:
-    """Increment a counter that expires `ttl` seconds after its first hit. Returns the new count."""
-    client = get_redis()
-    count = await client.incr(key)
-    if count == 1:
-        await client.expire(key, ttl)
+    """Increment a counter that expires `ttl` seconds after its first hit. Returns the new count.
+
+    INCR and EXPIRE run in one MULTI/EXEC, so a crash between them can't leave a counter that
+    never expires. EXPIRE NX (Redis 7+) only sets the expiry once, so later hits don't extend it.
+    """
+    async with get_redis().pipeline(transaction=True) as pipe:
+        pipe.incr(key)
+        pipe.expire(key, ttl, nx=True)
+        count, _ = await pipe.execute()
     return count
 
 
