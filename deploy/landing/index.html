@@ -172,6 +172,32 @@
   .store .arrow { font-weight: 400; opacity: 0.7; }
 
   /* QR block */
+  .steps {
+    margin: 0;
+    padding: 0 0 0 1.25rem;
+    display: grid;
+    gap: 0.85rem;
+    text-align: left;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: var(--ink2);
+  }
+
+  .steps li { padding-left: 0.15rem; }
+  .steps b { color: var(--ink); font-weight: 600; }
+  .steps .store-links { margin-top: 0.6rem; }
+
+  .aside {
+    margin: 1rem 0 0;
+    padding: 0.7rem 0.85rem;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    border-radius: 10px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    text-align: left;
+  }
+
   .qr-block {
     margin: 26px 0 0;
     padding: 20px 18px;
@@ -271,15 +297,26 @@
     <a class="cta" id="open" href="exp://__GO_HOST__:8081">Open SpeakEz</a>
 
     <section class="install">
-      <p>Don't have Expo Go? Install it first, then come back.</p>
-      <div class="store-links">
-        <a class="store" href="https://apps.apple.com/app/expo-go/id982107779">
-          <span>Expo Go for iPhone</span><span class="arrow" aria-hidden="true">&rarr;</span>
-        </a>
-        <a class="store" href="https://play.google.com/store/apps/details?id=host.exp.exponent">
-          <span>Expo Go for Android</span><span class="arrow" aria-hidden="true">&rarr;</span>
-        </a>
-      </div>
+      <p>First time? Three steps, about two minutes.</p>
+      <ol class="steps">
+        <li><b>Install Expo Go.</b> It is the free app that runs SpeakEz.
+          <div class="store-links">
+            <a class="store" href="https://apps.apple.com/app/expo-go/id982107779">
+              <span>Expo Go for iPhone</span><span class="arrow" aria-hidden="true">&rarr;</span>
+            </a>
+            <a class="store" href="https://play.google.com/store/apps/details?id=host.exp.exponent">
+              <span>Expo Go for Android</span><span class="arrow" aria-hidden="true">&rarr;</span>
+            </a>
+          </div>
+        </li>
+        <li><b>Open Expo Go once and sign in.</b> Any free Expo account works, or
+          <b>Continue with Google</b> &mdash; it is the fastest. Expo Go may refuse to open a
+          project until an account exists on the device. Nothing is shared with SpeakEz: the
+          account belongs to Expo, and SpeakEz never sees it.</li>
+        <li><b>Come back here and tap Open SpeakEz.</b> Expo Go takes over from there.</li>
+      </ol>
+      <p class="aside">Stuck on the sign-in? Ask us for one of the phones on the table &mdash; they are
+        already signed in and ready.</p>
     </section>
 
     <section class="qr-block" id="qr-block" hidden>
