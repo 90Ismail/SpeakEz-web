@@ -92,7 +92,7 @@ docker-compose.yml
 .env.example
 ```
 
-## Data model (Alembic 0001 + 0002)
+## Data model (Alembic 0001 + 0002 + 0003)
 
 ```sql
 create extension if not exists postgis;
@@ -109,8 +109,13 @@ create table notes (id uuid primary key, author_id uuid not null references acco
   status text not null default 'processing',   -- processing|draft|held|blocked|live
   -- 0002: visibility text not null default 'public' check (visibility in ('public','journal')),
   --       landmark_id nullable, but required when visibility = 'public'
+  -- 0003: prompt_id int references prompts (answers must be visibility = 'journal'),
+  --       parent_id uuid references notes on delete cascade (replies must be visibility = 'public')
   publish_at timestamptz, created_at timestamptz default now(), seeded boolean default false);
-create index notes_live_idx on notes (landmark_id) where status = 'live' and visibility = 'public';  -- 0002
+create index notes_live_idx on notes (landmark_id)
+  where status = 'live' and visibility = 'public' and parent_id is null;  -- 0002, 0003
+create index notes_replies_idx on notes (parent_id, created_at) where parent_id is not null and status = 'live';  -- 0003
+create table prompts (id serial primary key, text text unique not null, created_at timestamptz default now());  -- 0003
 create table reactions (note_id uuid references notes on delete cascade,
   account_id uuid references accounts,
   type text check (type in ('heard_you','same','strength','helped')),
@@ -126,12 +131,14 @@ create table moderation_log (id bigserial primary key, note_id uuid references n
 | POST | `/auth/start` | `{email}` → 204. Rejects non-umn.edu with 422. Rate limit 5/hour per email hash + per IP |
 | POST | `/auth/verify` | `{email, code, over18: true}` → `{access, refresh}` |
 | POST | `/auth/refresh` | refresh → new access |
-| GET | `/map?bbox=w,s,e,n` | Live **public** notes in view (never journal entries): `id, title, landmark {id,name,lat,lng}, duration_sec, day_label`. **Cached in Redis 30 s per rounded bbox**; invalidated when a note goes live |
+| GET | `/map?bbox=w,s,e,n` | Live **public original posts** in view (never journal entries or replies), each with `reply_count`: `id, title, landmark {id,name,lat,lng}, duration_sec, day_label`. **Cached in Redis 30 s per rounded bbox**; invalidated when a note goes live |
 | POST | `/notes` | `{landmark_id, duration_sec}` multipart audio upload → `{note_id}`; file saved via `storage.save` |
 | POST | `/notes/{id}/submit` | Audio uploaded → enqueue `process_note` |
 | GET | `/notes/{id}/draft` | Author only: status, title, body, flags |
 | POST | `/notes/{id}/publish` | `{title?, removed_sentence_ids?}` → schedules `publish_at` |
-| POST | `/notes/{id}/unlock` | `{lat, lng}` → 403 if outside radius, else `{body, words, audio_url}` |
+| POST | `/notes/{id}/unlock` | `{lat, lng}` → 403 if outside radius, else `{body, words, audio_url, replies[]}`; replies oldest first, loaded only after the distance check |
+| GET | `/prompts/today` | Today's journal prompt `{id, text, date}`; same for everyone, rotates at campus midnight |
+| POST | `/notes/{id}/replies` | *(not built yet)* multipart voice reply; must pass the same unlock distance check, always public, never on the map alone |
 | POST | `/notes/{id}/reactions` | `{type}` |
 | GET | `/landmarks/nearest?lat&lng` | Used by record flow to pick the landmark; position not stored |
 | GET | `/health` | db + redis check |
@@ -200,3 +207,5 @@ Where the docs and `SpeakEz.pen` disagree on visuals, the design wins.
 7. **Bottom bar — five labelled tabs:** Map, Journal, Record (accent, center), Saved, Profile. Saved Audio and My Posts move out of the profile drawer; the drawer keeps only account items.
 8. **Three kinds of note, one vocabulary:** Public post / Voice journal / Draft. Names, one-line summaries and icons live in `src/noteKinds.ts`; 06 Choose Place and the Journal tab both read from it. Public posts pick "this spot" or "anywhere on campus" as a sub-choice.
 9. **Voice journal is a visibility, enforced by the API** (Alembic 0002), not just a UI label: journal notes are filtered out of `/map` and refused by `/unlock`.
+10. **Daily prompt is journal-only.** One prompt per campus day from the `prompts` table (`GET /prompts/today`); answers are `visibility = 'journal'` with `prompt_id`, enforced by a DB check. The Journal tab shows it first; the record flow skips Choose Place and saves to the journal.
+11. **Replies thread under the original post.** A reply is a public note with `parent_id`; it shares the parent's landmark, is excluded from `/map`, and comes back inside `/unlock` after the distance check. The four quiet reactions stay as they are, above the thread.

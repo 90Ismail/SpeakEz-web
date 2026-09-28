@@ -23,7 +23,8 @@ The honest things don't get posted. They get thought, at a place, alone.
 A map of voices instead of a feed.
 
 - Record up to 3 minutes at the spot where it happened.
-- The note lives on that spot. No author, no profile, no reply thread.
+- The note lives on that spot. No author, no profile. The first post owns the place; anyone standing
+  there can answer with an anonymous voice reply, and replies thread underneath it.
 - Nobody can play it unless they are physically there: the server checks your distance with PostGIS
   before it hands over the audio.
 - Read along as it plays, word by word, and tap a paragraph to jump there.
@@ -39,6 +40,18 @@ Every recording ends up as one of these. You pick on the "Where should this note
 | **Public post** | Anyone standing at the place | Pinned to a landmark on the map. Anonymous: nobody sees who posted it |
 | **Voice journal** | Only you | Your Journal tab. Never goes on the map |
 | **Draft** | Only you | Your Journal tab, until you post it or move it to your journal |
+
+### Daily prompt
+
+The top of the Journal tab asks one question a day ("What did today ask of you?"). Everyone gets
+the same prompt, and it changes at midnight campus time. **Answers are private:** they save straight
+to your voice journal and can never be posted on the map (the database refuses it).
+
+### Replies and reactions
+
+Under every unlocked story you can leave one of the four quiet reactions, or **reply with your voice**.
+The original post stays first at the place and replies stack under it, oldest first, all anonymous.
+Replies unlock with the post, so you have to be there to hear them or add one.
 
 ### Finding your way around
 
@@ -93,6 +106,8 @@ Anonymity here is architecture, not a setting:
 - Map of campus with live notes from the API, POI-muted Apple/Google styling, campus landmark layer.
 - Five-tab bottom bar (Map, Journal, Record, Saved, Profile) and a Journal tab split into public posts, voice journal and drafts.
 - Journal entries are enforced server-side: they never appear on `/map` and can never be unlocked.
+- Daily prompt card in Journal (`GET /prompts/today`), answers journal-only.
+- Reply threads under stories, returned by `/unlock` with the post; reply counts on the map card.
 - Server-checked unlock, story screen, and real playback with word-synced transcript highlighting.
 - Seeded notes ship with generated voices and word timings, so the demo plays end to end immediately.
 - Dark mode, custom type system (Karla + Newsreader), and a dev theme-check screen.
