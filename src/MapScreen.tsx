@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchMapNotes, type MapBounds } from "./api";
 import { CAMPUS_LANDMARKS, type CampusLandmark } from "./campusLandmarks";
 import { Caps } from "./components/Caps";
-import { FloatingNav } from "./components/FloatingNav";
+import { FloatingNav, NAV_HEIGHT } from "./components/FloatingNav";
 import { IconButton } from "./components/IconButton";
 import { MapControls } from "./components/MapControls";
 import { Wordmark } from "./components/Wordmark";
@@ -21,7 +21,6 @@ import { fonts, radius, space, textStyle, type, useTheme, useThemeMode } from ".
 import { VoiceCard } from "./VoiceCard";
 import { ZONES } from "./zones";
 
-const NAV_HEIGHT = 62;
 const TOP_FADE_OPACITIES = [1, 0.92, 0.8, 0.6, 0.4, 0.2];
 const MAP_PADDING = { top: 140, right: 8, bottom: 250, left: 8 };
 const FALLBACK_LANDMARK = "Northrop Mall";

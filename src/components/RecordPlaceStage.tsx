@@ -5,11 +5,17 @@ import MapView, { Circle, Marker } from "react-native-maps";
 import type { CampusLandmark } from "../campusLandmarks";
 import { UNLOCK_RADIUS_M, USE_GOOGLE_ON_IOS } from "../config";
 import { googleMapStyle } from "../mapStyle";
+import { NOTE_KIND_ORDER, NOTE_KINDS, type NoteKind } from "../noteKinds";
 import { pressed as pressedOpacity, radius, space, textStyle, useTheme, useThemeMode } from "../theme";
 import type { CampusZone } from "../zones";
 import { IconButton } from "./IconButton";
 
-export type PlaceChoice = "spot" | "campus" | "draft";
+/** "spot" and "campus" are both public posts; they only differ in where the note can be heard. */
+export type PlaceChoice = "spot" | "campus" | "journal" | "draft";
+
+export function noteKindOf(choice: PlaceChoice): NoteKind {
+  return choice === "spot" || choice === "campus" ? "public" : choice;
+}
 
 type RecordPlaceStageProps = {
   zone: CampusZone | null;
@@ -24,7 +30,8 @@ type RecordPlaceStageProps = {
 };
 
 const FADE_BANDS = [0.88, 0.62, 0.38, 0.18, 0.06];
-const MAP_HEIGHT = Math.min(420, Math.max(240, Math.round(Dimensions.get("window").height - 424)));
+// The sheet holds three choices plus the public "where" toggle, so the map gives up some height.
+const MAP_HEIGHT = Math.min(360, Math.max(180, Math.round(Dimensions.get("window").height - 540)));
 
 function TopFade({ color }: { color: string }) {
   return (
@@ -75,6 +82,52 @@ function PlaceOption({ title, description, icon, selected, onPress }: PlaceOptio
   );
 }
 
+type WhereToggleProps = {
+  choice: PlaceChoice;
+  spotName: string;
+  bankName: string;
+  onChange: (choice: "spot" | "campus") => void;
+};
+
+/** Only shown under Public post: heard at this exact spot, or anywhere on the bank. */
+function WhereToggle({ choice, spotName, bankName, onChange }: WhereToggleProps) {
+  const theme = useTheme();
+  const options: { value: "spot" | "campus"; label: string; a11y: string }[] = [
+    { value: "spot", label: spotName, a11y: `Heard within ${UNLOCK_RADIUS_M} m of ${spotName}` },
+    { value: "campus", label: "Anywhere on campus", a11y: `Heard anywhere on ${bankName}` },
+  ];
+  return (
+    <View accessibilityRole="radiogroup" style={[styles.where, { backgroundColor: theme.tint }]}>
+      {options.map((option) => {
+        const selected = choice === option.value;
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            accessibilityLabel={option.a11y}
+            style={[styles.whereItem, selected ? { backgroundColor: theme.surface } : null]}
+          >
+            <Text
+              numberOfLines={1}
+              style={[styles.whereLabel, { color: selected ? theme.ink : theme.ink2 }]}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const CONTINUE_LABEL: Record<NoteKind, string> = {
+  public: "Continue",
+  journal: "Continue to journal",
+  draft: "Save as draft",
+};
+
 export function RecordPlaceStage({
   zone,
   spotLandmark,
@@ -89,6 +142,8 @@ export function RecordPlaceStage({
   const theme = useTheme();
   const mode = useThemeMode();
   const mapRef = useRef<MapView | null>(null);
+  const kind = noteKindOf(choice);
+  const isPublic = kind === "public";
   const chosen = choice === "campus" ? campusLandmark : spotLandmark;
 
   useEffect(() => {
@@ -138,6 +193,7 @@ export function RecordPlaceStage({
             strokeWidth={1}
           />
         ) : null}
+        {isPublic ? (
         <Circle
           center={chosen.coordinate}
           radius={UNLOCK_RADIUS_M}
@@ -145,6 +201,7 @@ export function RecordPlaceStage({
           strokeColor={theme.accentLine}
           strokeWidth={1}
         />
+        ) : null}
         {zone ? (
           <Marker
             coordinate={zone.center}
@@ -154,6 +211,7 @@ export function RecordPlaceStage({
             <Text style={[styles.zoneLabel, { color: theme.ink2 }]}>{zone.label}</Text>
           </Marker>
         ) : null}
+        {isPublic ? (
         <Marker
           key={chosen.id}
           coordinate={chosen.coordinate}
@@ -172,6 +230,7 @@ export function RecordPlaceStage({
             </View>
           </View>
         </Marker>
+        ) : null}
       </MapView>
 
       <TopFade color={theme.bg} />
@@ -197,58 +256,42 @@ export function RecordPlaceStage({
           },
         ]}
       >
-        <Text style={[styles.heading, { color: theme.ink }]}>Where should this note live?</Text>
-        <PlaceOption
-          title="This spot"
-          description={`Heard within ${UNLOCK_RADIUS_M} m of ${spotLandmark.name}.`}
-          icon="location-outline"
-          selected={choice === "spot"}
-          onPress={() => onChangeChoice("spot")}
-        />
-        <PlaceOption
-          title="Campus"
-          description={`Heard anywhere on ${bankName}.`}
-          icon="map-outline"
-          selected={choice === "campus"}
-          onPress={() => onChangeChoice("campus")}
-        />
-        <View style={styles.spacer} />
-        <View style={styles.footer}>
-          <Pressable
-            onPress={() => onChangeChoice("draft")}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: choice === "draft" }}
-            accessibilityLabel="Locally. Keep it as a voice note journal, only for you."
-            style={({ pressed }) => [
-              styles.locally,
-              {
-                borderColor: choice === "draft" ? theme.ink : theme.controlLine,
-                backgroundColor:
-                  choice === "draft" ? theme.accentSoft : pressed ? theme.tint : theme.surfaceClear,
-              },
-            ]}
-          >
-            <Ionicons
-              name="book-outline"
-              size={17}
-              color={choice === "draft" ? theme.accentText : theme.ink}
+        <Text style={[styles.heading, { color: theme.ink }]}>Where should this note go?</Text>
+        {NOTE_KIND_ORDER.map((option) => (
+          <View key={option} style={styles.optionGroup}>
+            <PlaceOption
+              title={NOTE_KINDS[option].name}
+              description={NOTE_KINDS[option].description}
+              icon={NOTE_KINDS[option].icon}
+              selected={kind === option}
+              onPress={() => {
+                if (option !== kind) onChangeChoice(option === "public" ? "spot" : option);
+              }}
             />
-            <Text style={[styles.locallyLabel, { color: theme.ink }]}>Locally</Text>
-          </Pressable>
-          <Pressable
-            onPress={onContinue}
-            accessibilityRole="button"
-            accessibilityLabel={
-              choice === "draft" ? "Continue with a private draft" : `Continue with ${chosen.name}`
-            }
-            style={({ pressed }) => [
-              styles.continue,
-              { backgroundColor: theme.ink, opacity: pressed ? pressedOpacity.soft : 1 },
-            ]}
-          >
-            <Text style={[styles.continueLabel, { color: theme.surface }]}>Continue</Text>
-          </Pressable>
-        </View>
+            {option === "public" && isPublic ? (
+              <WhereToggle
+                choice={choice}
+                spotName={spotLandmark.name}
+                bankName={bankName}
+                onChange={onChangeChoice}
+              />
+            ) : null}
+          </View>
+        ))}
+        <View style={styles.spacer} />
+        <Pressable
+          onPress={onContinue}
+          accessibilityRole="button"
+          accessibilityLabel={
+            isPublic ? `Continue with a public post at ${chosen.name}` : CONTINUE_LABEL[kind]
+          }
+          style={({ pressed }) => [
+            styles.continue,
+            { backgroundColor: theme.ink, opacity: pressed ? pressedOpacity.soft : 1 },
+          ]}
+        >
+          <Text style={[styles.continueLabel, { color: theme.surface }]}>{CONTINUE_LABEL[kind]}</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -302,8 +345,8 @@ const styles = StyleSheet.create({
   },
   sheet: {
     flex: 1,
-    gap: 12,
-    paddingTop: space.xl,
+    gap: 10,
+    paddingTop: space.lg,
     paddingHorizontal: space.gutter,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
@@ -321,7 +364,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: radius.md,
   },
   iconBox: {
@@ -358,25 +402,26 @@ const styles = StyleSheet.create({
   spacer: {
     flex: 1,
   },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
+  optionGroup: {
     gap: space.sm,
   },
-  locally: {
-    height: 52,
-    paddingHorizontal: 18,
-    borderRadius: radius.pill,
-    borderWidth: 1.5,
+  where: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    padding: 3,
+    borderRadius: radius.pill,
   },
-  locallyLabel: {
-    ...textStyle.bodyStrong,
+  whereItem: {
+    flex: 1,
+    height: 38,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  whereLabel: {
+    ...textStyle.supportStrong,
   },
   continue: {
-    flex: 1,
     height: 52,
     borderRadius: radius.pill,
     alignItems: "center",

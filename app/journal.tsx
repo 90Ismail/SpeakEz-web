@@ -4,49 +4,48 @@ import type { ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { landmarkById } from "../src/campusLandmarks";
-import { IconButton } from "../src/components/IconButton";
+import { FloatingNav, NAV_HEIGHT } from "../src/components/FloatingNav";
 import { formatDuration, ListRow, ListRowMore } from "../src/components/ListRow";
 import { TopBar } from "../src/components/TopBar";
+import { NOTE_KIND_ORDER, NOTE_KINDS, type NoteKind } from "../src/noteKinds";
 import { seedNoteById } from "../src/seedNotes";
 import { pressed as pressedOpacity, space, textStyle, useTheme } from "../src/theme";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-const LIVE_META: { id: string; fades: string }[] = [
+const PUBLIC_POSTS: { id: string; fades: string }[] = [
   { id: "failing-first-semester", fades: "Fades in 27 days" },
   { id: "tired-at-walter", fades: "Fades in 22 days" },
 ];
 
-const DRAFT = {
-  eyebrow: "SEPT 25 · COFFMAN UNION",
-  title: "Something I want to tell my brother",
-  duration: "1:06",
-  rest: "·  Not placed yet",
-};
+const JOURNAL_ENTRIES = [
+  {
+    eyebrow: "SEPT 21",
+    title: "Things I'm not ready to say yet",
+    duration: "1:48",
+    rest: "·  Only you",
+  },
+];
 
-const PRIVATE = {
-  eyebrow: "SEPT 21 · PILLSBURY HALL",
-  title: "Things I'm not ready to say yet",
-  duration: "1:48",
-  rest: "·  Doesn't fade",
-};
+const DRAFTS = [
+  {
+    eyebrow: "SEPT 25",
+    title: "Something I want to tell my brother",
+    duration: "1:06",
+    rest: "·  Not finished",
+  },
+];
 
-/** State glyphs shared by the section disc and each row's meta line. */
-const STATE_ICON: Record<"draft" | "public" | "private", IoniconName> = {
-  draft: "ellipse-outline",
-  public: "radio-outline",
-  private: "lock-closed-outline",
-};
+const FADED_COUNT = 3;
 
 type SectionHeadProps = {
-  kind: keyof typeof STATE_ICON;
-  name: string;
-  description: string;
+  kind: NoteKind;
   count: number;
 };
 
-function SectionHead({ kind, name, description, count }: SectionHeadProps) {
+function SectionHead({ kind, count }: SectionHeadProps) {
   const theme = useTheme();
+  const info = NOTE_KINDS[kind];
   const disc =
     kind === "public"
       ? { backgroundColor: theme.accentSoft, color: theme.accentText }
@@ -55,17 +54,26 @@ function SectionHead({ kind, name, description, count }: SectionHeadProps) {
     <View
       accessible
       accessibilityRole="header"
-      accessibilityLabel={`${name}, ${description}, ${count}`}
+      accessibilityLabel={`${info.section}, ${info.summary}, ${count}`}
       style={styles.sectionHead}
     >
       <View style={[styles.sectionDisc, { backgroundColor: disc.backgroundColor }]}>
-        <Ionicons name={STATE_ICON[kind]} size={16} color={disc.color} />
+        <Ionicons name={info.icon} size={16} color={disc.color} />
       </View>
       <View style={styles.sectionText}>
-        <Text style={[styles.sectionName, { color: theme.ink }]}>{name}</Text>
-        <Text style={[styles.sectionDesc, { color: theme.ink3 }]}>{description}</Text>
+        <Text style={[styles.sectionName, { color: theme.ink }]}>{info.section}</Text>
+        <Text style={[styles.sectionDesc, { color: theme.ink3 }]}>{info.summary}</Text>
       </View>
       <Text style={[styles.sectionCount, { color: theme.ink3 }]}>{count}</Text>
+    </View>
+  );
+}
+
+function EmptyRow({ label }: { label: string }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.empty, { borderTopColor: theme.line }]}>
+      <Text style={[styles.emptyLabel, { color: theme.ink3 }]}>{label}</Text>
     </View>
   );
 }
@@ -135,77 +143,26 @@ function List({ children }: { children: ReactNode }) {
   return <View style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line }}>{children}</View>;
 }
 
-export default function MyPostsScreen() {
+export default function JournalScreen() {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  return (
-    <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={{ paddingTop: insets.top, backgroundColor: theme.bg }}>
-        <TopBar
-          leading={{ label: "Go back", onPress: () => router.back() }}
-          trailing={
-            <IconButton
-              icon="mic"
-              variant="tint"
-              size={44}
-              iconSize={18}
-              onPress={() => router.push("/record")}
-              accessibilityLabel="Record a voice note"
-            />
-          }
-        />
-      </View>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
-        <View style={styles.titleBlock}>
-          <Text style={[styles.screenTitle, { color: theme.ink }]}>My Posts</Text>
-        </View>
+  const navBottom = insets.bottom + 4;
 
-        <View>
-          <SectionHead kind="draft" name="Drafts" description="Unfinished · only you" count={1} />
+  const sections: Record<NoteKind, { count: number; body: ReactNode }> = {
+    public: {
+      count: PUBLIC_POSTS.length,
+      body: (
+        <>
           <List>
-            <ListRow
-              eyebrowIcon={STATE_ICON.draft}
-              eyebrow={DRAFT.eyebrow}
-              eyebrowTone="ink3"
-              title={DRAFT.title}
-              contentGap={4}
-              paddingVertical={20}
-              rowGap={8}
-              onPress={() => {}}
-              accessibilityLabel="Draft, not published"
-              trailing={<ListRowMore onPress={() => {}} accessibilityLabel="More options for the draft" style={styles.rowTrailing} />}
-            >
-              <ListenRow
-                duration={DRAFT.duration}
-                rest={DRAFT.rest}
-                onPress={() => {}}
-                accessibilityLabel="Draft, not published"
-              />
-              <View style={styles.stateRow}>
-                <Pill
-                  icon="location-outline"
-                  label="Review & place"
-                  tone="ink"
-                  onPress={() => {}}
-                  accessibilityLabel="Draft, not published. Review and place"
-                />
-              </View>
-            </ListRow>
-          </List>
-        </View>
-
-        <View style={styles.sectionSpaced}>
-          <SectionHead kind="public" name="Public" description="Live on the map" count={LIVE_META.length} />
-          <List>
-            {LIVE_META.map(({ id, fades }) => {
+            {PUBLIC_POSTS.map(({ id, fades }) => {
               const note = seedNoteById(id);
               if (!note) return null;
               const landmarkName = landmarkById(note.landmarkId)?.name ?? "Campus";
               return (
                 <ListRow
                   key={note.id}
-                  eyebrowIcon={STATE_ICON.public}
+                  eyebrowIcon={NOTE_KINDS.public.icon}
                   eyebrow={`${note.dayLabel.toUpperCase()} · ${landmarkName.toUpperCase()}`}
                   eyebrowTone="ink3"
                   title={note.title}
@@ -243,50 +200,139 @@ export default function MyPostsScreen() {
               );
             })}
           </List>
-        </View>
-
-        <View accessible accessibilityRole="text" accessibilityLabel="3 earlier notes have faded" style={styles.fadedRow}>
-          <Ionicons name="archive-outline" size={18} color={theme.ink2} />
-          <Text style={[styles.fadedLabel, { color: theme.ink2 }]}>3 earlier notes have faded</Text>
-          <Ionicons name="chevron-forward" size={18} color={theme.ink2} />
-        </View>
-
-        <View style={styles.sectionSpaced}>
-          <SectionHead kind="private" name="Private" description="Finished · only you" count={1} />
+          <View
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel={`${FADED_COUNT} earlier posts have faded`}
+            style={[styles.fadedRow, { borderTopColor: theme.line }]}
+          >
+            <Ionicons name="archive-outline" size={18} color={theme.ink2} />
+            <Text style={[styles.fadedLabel, { color: theme.ink2 }]}>{FADED_COUNT} earlier posts have faded</Text>
+            <Ionicons name="chevron-forward" size={18} color={theme.ink2} />
+          </View>
+        </>
+      ),
+    },
+    journal: {
+      count: JOURNAL_ENTRIES.length,
+      body:
+        JOURNAL_ENTRIES.length === 0 ? (
+          <EmptyRow label="Nothing here yet. Private recordings land here." />
+        ) : (
           <List>
-            <ListRow
-              eyebrowIcon={STATE_ICON.private}
-              eyebrow={PRIVATE.eyebrow}
-              eyebrowTone="ink3"
-              title={PRIVATE.title}
-              contentGap={4}
-              paddingVertical={20}
-              rowGap={8}
-              onPress={() => {}}
-              accessibilityLabel="Private note, only you"
-              trailing={
-                <ListRowMore onPress={() => {}} accessibilityLabel="More options for the private note" style={styles.rowTrailing} />
-              }
-            >
-              <ListenRow
-                duration={PRIVATE.duration}
-                rest={PRIVATE.rest}
+            {JOURNAL_ENTRIES.map((entry) => (
+              <ListRow
+                key={entry.title}
+                eyebrowIcon={NOTE_KINDS.journal.icon}
+                eyebrow={entry.eyebrow}
+                eyebrowTone="ink3"
+                title={entry.title}
+                contentGap={4}
+                paddingVertical={20}
+                rowGap={8}
                 onPress={() => {}}
-                accessibilityLabel={`Play ${PRIVATE.title}`}
-              />
-              <View style={styles.stateRow}>
-                <Pill
-                  icon="radio-outline"
-                  label="Put it on the map"
-                  tone="outlined"
+                accessibilityLabel={`Journal entry, ${entry.title}, only you`}
+                trailing={
+                  <ListRowMore
+                    onPress={() => {}}
+                    accessibilityLabel={`More options for ${entry.title}`}
+                    style={styles.rowTrailing}
+                  />
+                }
+              >
+                <ListenRow
+                  duration={entry.duration}
+                  rest={entry.rest}
                   onPress={() => {}}
-                  accessibilityLabel="Private note. Put it on the map"
+                  accessibilityLabel={`Play ${entry.title}`}
                 />
-              </View>
-            </ListRow>
+                <View style={styles.stateRow}>
+                  <Pill
+                    icon={NOTE_KINDS.public.icon}
+                    label="Post it on the map"
+                    tone="outlined"
+                    onPress={() => {}}
+                    accessibilityLabel={`Post ${entry.title} on the map, anonymously`}
+                  />
+                </View>
+              </ListRow>
+            ))}
           </List>
+        ),
+    },
+    draft: {
+      count: DRAFTS.length,
+      body:
+        DRAFTS.length === 0 ? (
+          <EmptyRow label="No drafts. Unfinished recordings wait here." />
+        ) : (
+          <List>
+            {DRAFTS.map((draft) => (
+              <ListRow
+                key={draft.title}
+                eyebrowIcon={NOTE_KINDS.draft.icon}
+                eyebrow={draft.eyebrow}
+                eyebrowTone="ink3"
+                title={draft.title}
+                contentGap={4}
+                paddingVertical={20}
+                rowGap={8}
+                onPress={() => {}}
+                accessibilityLabel={`Draft, ${draft.title}, not finished`}
+                trailing={
+                  <ListRowMore
+                    onPress={() => {}}
+                    accessibilityLabel={`More options for ${draft.title}`}
+                    style={styles.rowTrailing}
+                  />
+                }
+              >
+                <ListenRow
+                  duration={draft.duration}
+                  rest={draft.rest}
+                  onPress={() => {}}
+                  accessibilityLabel={`Play ${draft.title}`}
+                />
+                <View style={styles.stateRow}>
+                  <Pill
+                    icon="create-outline"
+                    label="Finish it"
+                    tone="ink"
+                    onPress={() => {}}
+                    accessibilityLabel={`Finish ${draft.title}: post it or keep it in your journal`}
+                  />
+                </View>
+              </ListRow>
+            ))}
+          </List>
+        ),
+    },
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <View style={{ paddingTop: insets.top, backgroundColor: theme.bg }}>
+        <TopBar leading={null} />
+      </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: navBottom + NAV_HEIGHT + 24 }}
+      >
+        <View style={styles.titleBlock}>
+          <Text style={[styles.screenTitle, { color: theme.ink }]}>Journal</Text>
+          <Text style={[styles.screenSub, { color: theme.ink2 }]}>Everything you've recorded, in one place.</Text>
         </View>
+
+        {NOTE_KIND_ORDER.map((kind, index) => (
+          <View key={kind} style={index > 0 ? styles.sectionSpaced : null}>
+            <SectionHead kind={kind} count={sections[kind].count} />
+            {sections[kind].body}
+          </View>
+        ))}
       </ScrollView>
+      <View pointerEvents="box-none" style={[styles.navWrap, { bottom: navBottom }]}>
+        <FloatingNav />
+      </View>
     </View>
   );
 }
@@ -303,8 +349,12 @@ const styles = StyleSheet.create({
   screenTitle: {
     ...textStyle.displaySans,
   },
+  screenSub: {
+    ...textStyle.body,
+    marginTop: 4,
+  },
   sectionSpaced: {
-    paddingTop: 24,
+    paddingTop: 32,
   },
   sectionHead: {
     flexDirection: "row",
@@ -383,6 +433,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   fadedRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
@@ -392,5 +443,19 @@ const styles = StyleSheet.create({
   fadedLabel: {
     flex: 1,
     ...textStyle.body,
+  },
+  empty: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: space.gutter,
+    paddingVertical: 20,
+  },
+  emptyLabel: {
+    ...textStyle.support,
+  },
+  navWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
   },
 });

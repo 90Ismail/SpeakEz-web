@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RecordCaptureStage } from "../src/components/RecordCaptureStage";
-import { RecordPlaceStage, type PlaceChoice } from "../src/components/RecordPlaceStage";
+import { noteKindOf, RecordPlaceStage, type PlaceChoice } from "../src/components/RecordPlaceStage";
 import { RecordProcessingStage } from "../src/components/RecordProcessingStage";
 import {
   RecordReviewStage,
@@ -86,6 +86,13 @@ function nearestLandmark(position: LatLng) {
       : best,
   );
 }
+
+const LOCATION_SUFFIX: Record<PlaceChoice, string> = {
+  spot: "THIS SPOT",
+  campus: "ON CAMPUS",
+  journal: "VOICE JOURNAL",
+  draft: "DRAFT",
+};
 
 export default function RecordScreen() {
   const theme = useTheme();
@@ -388,7 +395,7 @@ export default function RecordScreen() {
       {stage === "review" ? (
         <RecordReviewStage
           landmarkName={(choice === "campus" ? campusLandmark : spotLandmark).name}
-          locationSuffix={choice === "campus" ? "ON CAMPUS" : choice === "draft" ? "DRAFT" : "THIS SPOT"}
+          locationSuffix={LOCATION_SUFFIX[choice]}
           title={title}
           onChangeTitle={setTitle}
           suggestions={SUGGESTIONS}
@@ -402,8 +409,9 @@ export default function RecordScreen() {
           onBack={() => setStage("place")}
           onDiscard={() => router.back()}
           onPublish={() => router.replace("/")}
-          onKeepDraft={() => router.back()}
-          draftOnly={choice === "draft"}
+          onKeepDraft={() => router.replace("/journal")}
+          onSaveJournal={() => router.replace("/journal")}
+          kind={noteKindOf(choice)}
           topInset={insets.top}
           bottomInset={insets.bottom}
         />

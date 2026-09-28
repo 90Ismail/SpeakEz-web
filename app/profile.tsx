@@ -4,11 +4,9 @@ import { useCallback, useEffect, useRef } from "react";
 import { Animated, BackHandler, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconButton } from "../src/components/IconButton";
-import { SEED_NOTES } from "../src/seedNotes";
 import { fonts, motion, radius, space, textStyle, type, useReducedMotion, useTheme } from "../src/theme";
 
 const DRAWER_WIDTH = 320;
-const MY_POSTS_COUNT = 2;
 /** Rows bleed into the gutter so the pressed tint spans edge to edge. */
 const ROW_BLEED = 12;
 
@@ -91,7 +89,7 @@ export default function ProfileScreen() {
     return () => subscription.remove();
   }, [close]);
 
-  function go(route: "/my-posts" | "/saved" | "/care") {
+  function go(route: "/care") {
     if (closing.current) return;
     router.push(route);
   }
@@ -151,21 +149,6 @@ export default function ProfileScreen() {
             </View>
           </View>
           <View>
-            <DrawerItem icon="person-outline" label="Profile" onPress={() => {}} accessibilityLabel="Profile" />
-            <DrawerItem
-              icon="mic-outline"
-              label="My Posts"
-              meta={String(MY_POSTS_COUNT)}
-              onPress={() => go("/my-posts")}
-              accessibilityLabel={`My Posts, ${MY_POSTS_COUNT} live`}
-            />
-            <DrawerItem
-              icon="bookmark-outline"
-              label="Saved Audio"
-              meta={String(SEED_NOTES.length)}
-              onPress={() => go("/saved")}
-              accessibilityLabel={`Saved Audio, ${SEED_NOTES.length} notes`}
-            />
             <DrawerItem icon="headset-outline" label="Recently Heard" onPress={() => {}} accessibilityLabel="Recently Heard" />
             <DrawerItem
               icon="help-buoy-outline"
