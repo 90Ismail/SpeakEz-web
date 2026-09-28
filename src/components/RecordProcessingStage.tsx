@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
-import { space, textStyle, useTheme } from "../theme";
+import { space, textStyle, useReducedMotion, useTheme } from "../theme";
 import { Waveform } from "./Waveform";
 
 const STEPS = [
@@ -29,10 +29,15 @@ type StepRowProps = {
 
 function StepRow({ label, state, spin, pulse }: StepRowProps) {
   const theme = useTheme();
+  const reduced = useReducedMotion();
   const pop = useRef(new Animated.Value(state === "done" ? 1 : 0)).current;
 
   useEffect(() => {
     if (state !== "done") return;
+    if (reduced) {
+      pop.setValue(1);
+      return;
+    }
     pop.setValue(0.4);
     Animated.spring(pop, {
       toValue: 1,
@@ -40,7 +45,7 @@ function StepRow({ label, state, spin, pulse }: StepRowProps) {
       tension: 140,
       useNativeDriver: true,
     }).start();
-  }, [state, pop]);
+  }, [state, pop, reduced]);
 
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
   const ringScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
@@ -90,6 +95,7 @@ function StepRow({ label, state, spin, pulse }: StepRowProps) {
 
 export function RecordProcessingStage({ onDone, topInset }: RecordProcessingStageProps) {
   const theme = useTheme();
+  const reduced = useReducedMotion();
   const [activeStep, setActiveStep] = useState(0);
   const spin = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
@@ -109,59 +115,57 @@ export function RecordProcessingStage({ onDone, topInset }: RecordProcessingStag
   }, [activeStep, onDone]);
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(spin, {
-        toValue: 1,
-        duration: 900,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [spin]);
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
+    if (reduced) {
+      spin.setValue(0);
+      pulse.setValue(0);
+      shimmer.setValue(0.5);
+      return undefined;
+    }
+    const loops = [
+      Animated.loop(
+        Animated.timing(spin, {
           toValue: 1,
           duration: 900,
-          easing: Easing.inOut(Easing.quad),
+          easing: Easing.linear,
           useNativeDriver: true,
         }),
-        Animated.timing(pulse, {
-          toValue: 0,
-          duration: 900,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse]);
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmer, {
-          toValue: 1,
-          duration: 1100,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmer, {
-          toValue: 0,
-          duration: 1100,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [shimmer]);
+      ),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, {
+            toValue: 1,
+            duration: 900,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulse, {
+            toValue: 0,
+            duration: 900,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+      ),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmer, {
+            toValue: 1,
+            duration: 1100,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(shimmer, {
+            toValue: 0,
+            duration: 1100,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+      ),
+    ];
+    loops.forEach((loop) => loop.start());
+    return () => loops.forEach((loop) => loop.stop());
+  }, [reduced, spin, pulse, shimmer]);
 
   const shimmerOpacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] });
 

@@ -1,5 +1,13 @@
-import { createContext, createElement, useContext, useSyncExternalStore, type ReactNode } from "react";
-import { useColorScheme } from "react-native";
+import {
+  createContext,
+  createElement,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+import { AccessibilityInfo, useColorScheme } from "react-native";
 
 export type ThemeMode = "light" | "dark";
 
@@ -149,7 +157,7 @@ export type ColorTokens = {
 
 const light: ColorTokens = {
   bg: "#F7F6F3",
-  surface: "#FFFFFF",
+  surface: "#FDFCF9",
   ink: "#1C1D1F",
   ink2: "#4A4D52",
   ink3: "#676B71",
@@ -157,7 +165,7 @@ const light: ColorTokens = {
   accent: "#2F7A64",
   accentSoft: "#E4F0EA",
   accentText: "#245E4E",
-  onAccent: "#FFFFFF",
+  onAccent: "#F7FAF8",
   accentWash: "#2F7A641A",
   accentLine: "#2F7A6659",
   accentClear: "#2F7A6400",
@@ -171,11 +179,11 @@ const light: ColorTokens = {
   danger: "#A63D33",
   dangerSoft: "#F7E8E5",
   waveMuted: "#C7CACD",
-  ring: "#FFFFFF",
+  ring: "#FCFCFA",
   bgClear: "#F7F6F300",
   bgVeil: "#F7F6F3EB",
   surfaceClear: "#FFFFFF00",
-  controlLine: "#8D9196",
+  controlLine: "#7E8287",
   mapGround: "#ECEEED",
   mapBlock: "#DFE2E1",
   mapPark: "#DCE6DC",
@@ -183,7 +191,7 @@ const light: ColorTokens = {
   mapRoad: "#FAFAF9",
   mapLabel: "#5F6664",
   mapLandmark: "#D2D8D5",
-  mapPath: "#FFFFFF",
+  mapPath: "#FCFCFA",
   mapTunnel: "#8A938F",
 };
 
@@ -191,8 +199,8 @@ const dark: ColorTokens = {
   bg: "#121314",
   surface: "#1B1D1F",
   ink: "#ECEAE6",
-  ink2: "#BDBFC2",
-  ink3: "#8F9398",
+  ink2: "#C6C3BE",
+  ink3: "#9C9995",
   line: "#2C2F32",
   accent: "#7FBFA6",
   accentSoft: "#1C2B25",
@@ -206,8 +214,8 @@ const dark: ColorTokens = {
   glass: "#232528C7",
   glassStrong: "#1B1D1FF2",
   glassStroke: "#FFFFFF1F",
-  glassShadow: "#00000066",
-  scrim: "#00000080",
+  glassShadow: "#0B0C0D66",
+  scrim: "#0B0C0D80",
   danger: "#E59A90",
   dangerSoft: "#2E1C1A",
   waveMuted: "#3B3F43",
@@ -215,7 +223,7 @@ const dark: ColorTokens = {
   bgClear: "#12131400",
   bgVeil: "#121314EB",
   surfaceClear: "#1B1D1F00",
-  controlLine: "#6A6E73",
+  controlLine: "#77746F",
   mapGround: "#1A1C1E",
   mapBlock: "#25282B",
   mapPark: "#1C2620",
@@ -263,4 +271,25 @@ export function useThemeMode(): ThemeMode {
 
 export function useTheme(): ColorTokens {
   return palette[useThemeMode()];
+}
+
+/** True when the system asks for reduced motion; loops and slides should then collapse to static. */
+export function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((value) => {
+        if (active) setReduced(value);
+      })
+      .catch(() => {});
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduced);
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return reduced;
 }

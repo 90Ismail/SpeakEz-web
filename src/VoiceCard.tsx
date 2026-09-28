@@ -5,7 +5,15 @@ import { Waveform } from "./components/Waveform";
 import { UNLOCK_RADIUS_M } from "./config";
 import { formatDistance } from "./geo";
 import type { MapNote } from "./notes";
-import { motion, pressed as pressedOpacity, radius, shadow, textStyle, useTheme } from "./theme";
+import {
+  motion,
+  pressed as pressedOpacity,
+  radius,
+  shadow,
+  textStyle,
+  useReducedMotion,
+  useTheme,
+} from "./theme";
 
 const CARD_HEIGHT = 460;
 
@@ -31,15 +39,17 @@ function formatDuration(seconds: number): string {
 
 export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
   const theme = useTheme();
+  const reduced = useReducedMotion();
   const [rendered, setRendered] = useState<MapNote | null>(null);
   const translateY = useRef(new Animated.Value(CARD_HEIGHT)).current;
 
   useEffect(() => {
+    const duration = reduced ? 0 : motion.settle;
     if (note) {
       setRendered(note);
       Animated.timing(translateY, {
         toValue: 0,
-        duration: motion.settle,
+        duration,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
@@ -48,13 +58,13 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
     if (!rendered) return;
     Animated.timing(translateY, {
       toValue: CARD_HEIGHT,
-      duration: motion.settle,
+      duration,
       easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished) setRendered(null);
     });
-  }, [note, rendered, translateY]);
+  }, [note, rendered, translateY, reduced]);
 
   if (!rendered) return null;
 

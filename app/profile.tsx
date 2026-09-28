@@ -5,7 +5,7 @@ import { Animated, BackHandler, Easing, Pressable, StyleSheet, Text, View } from
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconButton } from "../src/components/IconButton";
 import { SEED_NOTES } from "../src/seedNotes";
-import { fonts, motion, radius, space, textStyle, type, useTheme } from "../src/theme";
+import { fonts, motion, radius, space, textStyle, type, useReducedMotion, useTheme } from "../src/theme";
 
 const DRAWER_WIDTH = 320;
 const MY_POSTS_COUNT = 2;
@@ -54,33 +54,34 @@ export default function ProfileScreen() {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const reduced = useReducedMotion();
   const slide = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const closing = useRef(false);
 
   useEffect(() => {
     const animation = Animated.timing(slide, {
       toValue: 0,
-      duration: motion.settle,
+      duration: reduced ? 0 : motion.settle,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     });
     animation.start();
     return () => animation.stop();
-  }, [slide]);
+  }, [slide, reduced]);
 
   const close = useCallback(() => {
     if (closing.current) return;
     closing.current = true;
     Animated.timing(slide, {
       toValue: -DRAWER_WIDTH,
-      duration: motion.press,
+      duration: reduced ? 0 : motion.press,
       easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished) router.back();
       else closing.current = false;
     });
-  }, [router, slide]);
+  }, [router, slide, reduced]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
