@@ -1,12 +1,31 @@
+import uuid
 from collections.abc import Sequence
 
 from geoalchemy2 import Geography, Geometry
-from sqlalchemy import cast, func, select
+from sqlalchemy import Row, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Landmark, Note
 
 Bbox = tuple[float, float, float, float]
+
+
+async def note_summary(session: AsyncSession, note_id: uuid.UUID) -> Row | None:
+    stmt = select(Note.status, Note.landmark_id, Note.body, Note.words, Note.audio_key).where(
+        Note.id == note_id
+    )
+    return (await session.execute(stmt)).first()
+
+
+async def within_radius(
+    session: AsyncSession, landmark_id: str, lat: float, lng: float, radius_m: int
+) -> bool:
+    point = cast(func.ST_SetSRID(func.ST_MakePoint(lng, lat), 4326), Geography)
+    stmt = (
+        select(func.ST_DWithin(Landmark.geom, point, radius_m))
+        .where(Landmark.id == landmark_id)
+    )
+    return bool(await session.scalar(stmt))
 
 
 async def live_notes_in_bbox(

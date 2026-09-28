@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { unlockNote } from "../../src/api";
 import { landmarkById, type CampusLandmark } from "../../src/campusLandmarks";
 import { IconButton } from "../../src/components/IconButton";
 import { ReactionButton } from "../../src/components/ReactionButton";
@@ -186,6 +187,8 @@ export default function StoryScreen() {
     landmarkId?: string | string[];
     durationSec?: string | string[];
     dayLabel?: string | string[];
+    lat?: string | string[];
+    lng?: string | string[];
   }>();
   const noteId = singleParam(params.id);
   const paramTitle = singleParam(params.title);
@@ -193,6 +196,8 @@ export default function StoryScreen() {
   const paramDurationSec = singleParam(params.durationSec);
   const paramDayLabel = singleParam(params.dayLabel);
   const unlockedParam = singleParam(params.unlocked);
+  const latParam = singleParam(params.lat);
+  const lngParam = singleParam(params.lng);
   const note = useMemo<StoryNote | undefined>(() => {
     if (noteId && paramTitle && paramLandmarkId) {
       const duration = Number(paramDurationSec ?? 0);
@@ -209,6 +214,12 @@ export default function StoryScreen() {
   }, [noteId, paramTitle, paramLandmarkId, paramDurationSec, paramDayLabel]);
   const landmark = note ? landmarkById(note.landmarkId) : undefined;
   const durationSec = note?.durationSec ?? 0;
+  const position = useMemo(() => {
+    const lat = Number(latParam);
+    const lng = Number(lngParam);
+    if (!latParam || !lngParam || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { latitude: lat, longitude: lng };
+  }, [latParam, lngParam]);
 
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -219,13 +230,37 @@ export default function StoryScreen() {
   const [reaction, setReaction] = useState<ReactionType | null>(null);
   const [transcriptVisible, setTranscriptVisible] = useState(true);
   const [trackWidth, setTrackWidth] = useState(0);
+  const [body, setBody] = useState<string[]>(note?.body ?? []);
+  const [access, setAccess] = useState<"checking" | "unlocked" | "locked">(() => {
+    if ((note?.body.length ?? 0) > 0) return "unlocked";
+    if (!position || unlockedParam === "0") return "locked";
+    return "checking";
+  });
 
-  const timings = useMemo(() => buildTimings(note?.body ?? [], durationSec), [note, durationSec]);
+  useEffect(() => {
+    if (access !== "checking" || !note || !position) return;
+    let cancelled = false;
+    unlockNote(note.id, position)
+      .then((result) => {
+        if (cancelled) return;
+        setBody(result.body);
+        setAccess("unlocked");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAccess("locked");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [access, note, position]);
+
+  const timings = useMemo(() => buildTimings(body, durationSec), [body, durationSec]);
   const next = useMemo(
     () => (note && landmark ? nearestOtherStory(note, landmark) : null),
     [note, landmark],
   );
-  const unlocked = unlockedParam !== "0";
+  const unlocked = access !== "locked";
   const progress = durationSec > 0 ? player.currentTime / durationSec : 0;
   const currentIndex = currentParagraphAt(timings, player.currentTime);
 
@@ -383,7 +418,7 @@ export default function StoryScreen() {
                     </View>
                   </View>
                   <View style={styles.transcript}>
-                    {note.body.map((text, index) => (
+                    {body.map((text, index) => (
                       <Text key={index} style={[styles.paragraph, { color: theme.ink }]}>
                         {text}
                       </Text>

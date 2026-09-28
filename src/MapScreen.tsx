@@ -289,6 +289,9 @@ export function MapScreen() {
               landmarkId: note.landmarkId,
               durationSec: String(note.durationSec),
               dayLabel: note.dayLabel,
+              ...(userPosition
+                ? { lat: String(userPosition.latitude), lng: String(userPosition.longitude) }
+                : {}),
             },
           })
         }

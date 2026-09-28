@@ -23,6 +23,15 @@ type ApiMapNote = {
   day_label: string;
 };
 
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 let accessToken: string | null = null;
 
 export function setAccessToken(token: string | null): void {
@@ -39,9 +48,43 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!response.ok) {
-    throw new Error(`SpeakEz API ${response.status} for ${path}`);
+    throw new ApiError(response.status, `SpeakEz API ${response.status} for ${path}`);
   }
   return (await response.json()) as T;
+}
+
+export type UnlockWord = {
+  word: string;
+  start: number;
+  end: number;
+};
+
+export type UnlockResult = {
+  body: string[];
+  words: UnlockWord[];
+  audioUrl: string | null;
+};
+
+export async function unlockNote(
+  id: string,
+  position: { latitude: number; longitude: number },
+): Promise<UnlockResult> {
+  const data = await request<{
+    body: string;
+    words: UnlockWord[] | null;
+    audio_url: string | null;
+  }>(`/notes/${id}/unlock`, {
+    method: "POST",
+    body: JSON.stringify({ lat: position.latitude, lng: position.longitude }),
+  });
+  return {
+    body: data.body
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter((paragraph) => paragraph.length > 0),
+    words: data.words ?? [],
+    audioUrl: data.audio_url ? new URL(data.audio_url, API_URL).toString() : null,
+  };
 }
 
 export async function fetchMapNotes(bounds: MapBounds): Promise<MapNote[]> {

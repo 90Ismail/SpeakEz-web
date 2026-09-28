@@ -26,3 +26,20 @@ class HealthOut(BaseModel):
     status: str
     db: bool
     redis: bool
+
+
+class UnlockRequest(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+
+
+class WordOut(BaseModel):
+    word: str
+    start: float
+    end: float
+
+
+class UnlockResponse(BaseModel):
+    body: str
+    words: list[WordOut] | None = None
+    audio_url: str | None = None

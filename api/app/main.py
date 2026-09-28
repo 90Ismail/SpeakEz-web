@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .cache import close_redis
 from .db import engine
-from .routes import health, notes
+from .routes import health, media, notes
 
 
 @asynccontextmanager
@@ -27,3 +27,4 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(notes.router)
+app.include_router(media.router)
