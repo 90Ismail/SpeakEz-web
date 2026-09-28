@@ -23,13 +23,13 @@ import { ZONES } from "./zones";
 
 const TOP_FADE_OPACITIES = [1, 0.92, 0.8, 0.6, 0.4, 0.2];
 const MAP_PADDING = { top: 140, right: 8, bottom: 250, left: 8 };
-const FALLBACK_LANDMARK = "Northrop Mall";
-const SMALL_NUMBERS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+const BANK_NAMES = { east: "East Bank", west: "West Bank" } as const;
 
-/** "Three voices nearby" for small counts (the editorial voice), digits beyond ten. */
-function voicesNearbyLabel(count: number): string {
-  const amount = count >= 0 && count < SMALL_NUMBERS.length ? SMALL_NUMBERS[count] : String(count);
-  return `${amount} ${count === 1 ? "voice" : "voices"} nearby`;
+/** "3 voices nearby"; when none are within a short walk, count the whole campus instead of saying "No". */
+function voicesLabel(nearby: number, total: number): string {
+  const plural = (count: number) => (count === 1 ? "voice" : "voices");
+  if (nearby > 0) return `${nearby} ${plural(nearby)} nearby`;
+  return `${total} ${plural(total)} on campus`;
 }
 
 function boundsFromRegion(region: Region): MapBounds {
@@ -248,11 +248,11 @@ export function MapScreen() {
             style={styles.eyebrow}
           >
             <Text style={[styles.eyebrowText, { color: theme.ink2 }]}>
-              {`NEAR ${(nearestLandmark?.name ?? FALLBACK_LANDMARK).toUpperCase()}`}
+              {nearestLandmark ? `NEAR ${BANK_NAMES[nearestLandmark.bank].toUpperCase()} · UMN` : "UMN CAMPUS"}
             </Text>
           </Pressable>
           <View pointerEvents="none">
-            <Text style={[styles.headline, { color: theme.ink }]}>{voicesNearbyLabel(voicesNearby)}</Text>
+            <Text style={[styles.headline, { color: theme.ink }]}>{voicesLabel(voicesNearby, notes.length)}</Text>
           </View>
         </View>
       </View>
