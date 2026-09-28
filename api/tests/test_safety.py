@@ -118,6 +118,46 @@ def test_evasion_still_matches(text, label):
     assert verdict.label == label
 
 
+# Typed titles can use characters speech-to-text never produces. Escapes keep the
+# lookalikes visible in review: \u0430 is Cyrillic "a", \u03b1 is Greek alpha, and so on.
+@pytest.mark.parametrize(
+    "text,decision",
+    [
+        # "|" is the normalizer's own clause-break marker
+        ("un|alive myself", "held"),
+        ("k|m|s", "held"),
+        ("gonna sh|oot up coffman", "blocked"),
+        # Cyrillic lookalikes
+        ("un\u0430live myself", "held"),  # a
+        ("unaliv\u0435 myself", "held"),  # e
+        ("\u043ams", "held"),  # k
+        ("k\u043cs", "held"),  # m
+        ("\u043a\u043c\u0455", "held"),  # k m s
+        ("k\u0456ll myself", "held"),  # i
+        ("\u041a\u041c\u0405", "held"),  # capitals K M S
+        ("im gonna k\u0456ll him", "blocked"),
+        # Greek lookalikes
+        ("un\u03b1live myself", "held"),  # alpha
+        ("\u03bams", "held"),  # kappa
+        ("k\u03b9ll myself", "held"),  # iota
+        ("unali\u03bde", "held"),  # nu
+        ("sh\u03bf\u03bft up coffman tomorrow", "blocked"),  # omicron
+        # fullwidth letters
+        ("\uff55\uff4e\uff41\uff4c\uff49\uff56\uff45", "held"),
+        ("\uff4b\uff4d\uff53", "held"),
+        # zero-width characters inside terms
+        ("un\u200balive", "held"),
+        ("un\u200calive", "held"),
+        ("un\u200dalive", "held"),
+        ("un\ufeffalive", "held"),
+        ("k\u200bm\u200cs\u200d", "held"),
+        ("kill\u200d myself", "held"),
+    ],
+)
+def test_lookalike_and_hidden_character_evasion(text, decision):
+    assert check_transcript(text).decision == decision
+
+
 def test_threat_evasion_still_matches():
     verdict = check_transcript("Im G0NNA K!LL   H1M")
     assert verdict.decision == "blocked"

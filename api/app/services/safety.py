@@ -32,6 +32,22 @@ _LEET_DIGITS = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", 
 # Symbols read as letters when a letter or digit follows them ("$uicide", "k!ll"), not at word ends ("help!").
 _LEET_SYMBOLS = {"@": "a", "$": "s", "!": "i"}
 CLAUSE_BREAK = "|"
+# Cyrillic and Greek letters that look like Latin ones ("un\u0430live" with a Cyrillic a). Keys
+# are lowercase: capitals are lowered first. Typed titles can use these; speech-to-text won't.
+_LOOKALIKES = str.maketrans(
+    {
+        # Cyrillic
+        "\u0430": "a", "\u0432": "b", "\u0441": "c", "\u0501": "d", "\u0435": "e",
+        "\u04bb": "h", "\u043d": "h", "\u0456": "i", "\u0458": "j", "\u043a": "k",
+        "\u04cf": "l", "\u043c": "m", "\u043e": "o", "\u0440": "p", "\u051b": "q",
+        "\u0455": "s", "\u0442": "t", "\u0443": "y", "\u04af": "y", "\u0445": "x",
+        "\u051d": "w",
+        # Greek
+        "\u03b1": "a", "\u03b2": "b", "\u03b5": "e", "\u03b7": "n", "\u03b9": "i",
+        "\u03ba": "k", "\u03bc": "m", "\u03bd": "v", "\u03bf": "o", "\u03c1": "p",
+        "\u03c2": "s", "\u03c4": "t", "\u03c5": "u", "\u03c7": "x", "\u03c9": "w",
+    }
+)
 # Runs of this many single characters are read as one spelled-out word ("k m s" -> "kms").
 _SPELLED_OUT_MIN = 3
 
@@ -59,11 +75,15 @@ class _Lexicon:
 def normalize(text: str) -> str:
     """Reduce text to lowercase a-z/0-9 words, single spaces and "|" clause breaks.
 
-    Undoes the usual ways of dodging a filter: accents, mixed case, leetspeak, punctuation
-    between letters ("k.m.s", "k*m*s"), and spelled-out letters ("k m s", "k-m-s").
+    Undoes the usual ways of dodging a filter: accents, mixed case, fullwidth and lookalike
+    letters, zero-width characters, leetspeak, punctuation between letters ("k.m.s", "k|m|s"),
+    and spelled-out letters ("k m s", "k-m-s").
     """
     text = unicodedata.normalize("NFKD", text)
     text = "".join(ch for ch in text if not unicodedata.combining(ch)).lower()
+    text = text.translate(_LOOKALIKES)
+    # "|" is our clause-break marker, so a typed one ("un|alive") must not survive to matching.
+    text = text.replace(CLAUSE_BREAK, "")
     text = re.sub(r"['’`]", "", text)  # "don't" -> "dont"
     text = re.sub(r"[@$!](?=[a-z0-9])", lambda m: _LEET_SYMBOLS[m.group()], text)
     # Punctuation that ends a clause becomes a break, so phrases can't match across sentences.
