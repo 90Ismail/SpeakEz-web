@@ -39,6 +39,7 @@ type RecordReviewStageProps = {
   onDiscard: () => void;
   onPublish: () => void;
   onKeepDraft: () => void;
+  draftOnly?: boolean;
   topInset: number;
   bottomInset: number;
 };
@@ -65,6 +66,7 @@ export function RecordReviewStage({
   onDiscard,
   onPublish,
   onKeepDraft,
+  draftOnly = false,
   topInset,
   bottomInset,
 }: RecordReviewStageProps) {
@@ -223,27 +225,33 @@ export function RecordReviewStage({
         ]}
       >
         <Pressable
-          onPress={onPublish}
+          onPress={draftOnly ? onKeepDraft : onPublish}
           accessibilityRole="button"
-          accessibilityLabel={`Leave it at ${landmarkName}`}
+          accessibilityLabel={draftOnly ? "Keep as a draft" : `Leave it at ${landmarkName}`}
           style={({ pressed }) => [
             styles.publish,
             { backgroundColor: theme.ink, opacity: pressed ? pressedOpacity.soft : 1 },
           ]}
         >
-          <Ionicons name="location-outline" size={16} color={theme.surface} />
+          <Ionicons
+            name={draftOnly ? "book-outline" : "location-outline"}
+            size={16}
+            color={theme.surface}
+          />
           <Text style={[styles.publishLabel, { color: theme.surface }]}>
-            Leave it at {landmarkName}
+            {draftOnly ? "Keep as a draft" : `Leave it at ${landmarkName}`}
           </Text>
         </Pressable>
-        <Pressable
-          onPress={onKeepDraft}
-          accessibilityRole="button"
-          accessibilityLabel="Keep as a private draft"
-          style={({ pressed }) => [styles.draft, { opacity: pressed ? pressedOpacity.dim : 1 }]}
-        >
-          <Text style={[styles.draftLabel, { color: theme.ink2 }]}>Keep as a private draft</Text>
-        </Pressable>
+        {draftOnly ? null : (
+          <Pressable
+            onPress={onKeepDraft}
+            accessibilityRole="button"
+            accessibilityLabel="Keep as a private draft"
+            style={({ pressed }) => [styles.draft, { opacity: pressed ? pressedOpacity.dim : 1 }]}
+          >
+            <Text style={[styles.draftLabel, { color: theme.ink2 }]}>Keep as a private draft</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );

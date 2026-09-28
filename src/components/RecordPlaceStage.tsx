@@ -9,7 +9,7 @@ import { pressed as pressedOpacity, radius, space, textStyle, useTheme, useTheme
 import type { CampusZone } from "../zones";
 import { IconButton } from "./IconButton";
 
-export type PlaceChoice = "spot" | "campus";
+export type PlaceChoice = "spot" | "campus" | "draft";
 
 type RecordPlaceStageProps = {
   zone: CampusZone | null;
@@ -212,11 +212,20 @@ export function RecordPlaceStage({
           selected={choice === "campus"}
           onPress={() => onChangeChoice("campus")}
         />
+        <PlaceOption
+          title="Draft"
+          description="Locally, as a voice note journal — only you can open it."
+          icon="book-outline"
+          selected={choice === "draft"}
+          onPress={() => onChangeChoice("draft")}
+        />
         <View style={styles.spacer} />
         <Pressable
           onPress={onContinue}
           accessibilityRole="button"
-          accessibilityLabel={`Continue with ${chosen.name}`}
+          accessibilityLabel={
+            choice === "draft" ? "Continue with a private draft" : `Continue with ${chosen.name}`
+          }
           style={({ pressed }) => [
             styles.continue,
             { backgroundColor: theme.ink, opacity: pressed ? pressedOpacity.soft : 1 },

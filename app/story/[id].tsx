@@ -275,6 +275,8 @@ export default function StoryScreen() {
   const transcriptOffsetRef = useRef(0);
   const paragraphOffsetsRef = useRef<number[]>([]);
   const lastScrolledIndexRef = useRef<number | null>(null);
+  const isScrubbingRef = useRef(false);
+  const lastTimeRef = useRef(0);
   const trackWidthRef = useRef(1);
   const dragStartRef = useRef(0);
   const durationRef = useRef(durationSec);
@@ -291,6 +293,7 @@ export default function StoryScreen() {
         onMoveShouldSetPanResponderCapture: () => true,
         onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: (event) => {
+          isScrubbingRef.current = true;
           const percent = clamp(event.nativeEvent.locationX / trackWidthRef.current, 0, 1);
           dragStartRef.current = percent;
           seekToRef.current(percent * durationRef.current);
@@ -299,25 +302,30 @@ export default function StoryScreen() {
           const percent = clamp(dragStartRef.current + gesture.dx / trackWidthRef.current, 0, 1);
           seekToRef.current(percent * durationRef.current);
         },
+        onPanResponderRelease: () => {
+          isScrubbingRef.current = false;
+        },
+        onPanResponderTerminate: () => {
+          isScrubbingRef.current = false;
+        },
       }),
     [],
   );
 
   useEffect(() => {
-    if (!playbackStarted || !transcriptVisible) return;
-    if (lastScrolledIndexRef.current === null) {
-      lastScrolledIndexRef.current = currentIndex;
-      return;
-    }
+    const previousTime = lastTimeRef.current;
+    lastTimeRef.current = player.currentTime;
     if (lastScrolledIndexRef.current === currentIndex) return;
     lastScrolledIndexRef.current = currentIndex;
+    if (!player.playing || !transcriptVisible || isScrubbingRef.current) return;
+    if (Math.abs(player.currentTime - previousTime) > 1.5) return;
     const offset = paragraphOffsetsRef.current[currentIndex];
     if (offset === undefined) return;
     scrollRef.current?.scrollTo({
       y: Math.max(transcriptOffsetRef.current + offset - 80, 0),
       animated: true,
     });
-  }, [currentIndex, playbackStarted, transcriptVisible]);
+  }, [currentIndex, player.currentTime, player.playing, transcriptVisible]);
 
   if (!note || !landmark) {
     return (

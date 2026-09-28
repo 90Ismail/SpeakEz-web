@@ -385,7 +385,7 @@ export default function RecordScreen() {
       {stage === "review" ? (
         <RecordReviewStage
           landmarkName={(choice === "campus" ? campusLandmark : spotLandmark).name}
-          locationSuffix={choice === "campus" ? "ON CAMPUS" : "THIS SPOT"}
+          locationSuffix={choice === "campus" ? "ON CAMPUS" : choice === "draft" ? "DRAFT" : "THIS SPOT"}
           title={title}
           onChangeTitle={setTitle}
           suggestions={SUGGESTIONS}
@@ -400,6 +400,7 @@ export default function RecordScreen() {
           onDiscard={() => router.back()}
           onPublish={() => router.replace("/")}
           onKeepDraft={() => router.back()}
+          draftOnly={choice === "draft"}
           topInset={insets.top}
           bottomInset={insets.bottom}
         />
