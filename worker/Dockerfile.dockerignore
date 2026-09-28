@@ -1,0 +1,8 @@
+# The worker builds from the repo root; send only what its Dockerfile copies
+# (not node_modules, the app, or seed audio).
+*
+!worker/
+!api/pyproject.toml
+!api/app/
+**/__pycache__
+**/*.py[cod]

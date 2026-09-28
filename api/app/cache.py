@@ -42,3 +42,25 @@ async def invalidate(prefix: str) -> int:
     async for key in client.scan_iter(match=f"{prefix}*"):
         removed += await client.delete(key)
     return removed
+
+
+async def incr_with_ttl(key: str, ttl: int) -> int:
+    """Increment a counter that expires `ttl` seconds after its first hit. Returns the new count.
+
+    INCR and EXPIRE run in one MULTI/EXEC, so a crash between them can't leave a counter that
+    never expires. EXPIRE NX (Redis 7+) only sets the expiry once, so later hits don't extend it.
+    """
+    async with get_redis().pipeline(transaction=True) as pipe:
+        pipe.incr(key)
+        pipe.expire(key, ttl, nx=True)
+        count, _ = await pipe.execute()
+    return count
+
+
+async def get_json(key: str):
+    raw = await get_redis().get(key)
+    return None if raw is None else json.loads(raw)
+
+
+async def set_json(key: str, value, ttl: int) -> None:
+    await get_redis().set(key, json.dumps(value), ex=ttl)

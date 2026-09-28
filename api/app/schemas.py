@@ -1,6 +1,7 @@
 import uuid
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class LandmarkOut(BaseModel):
@@ -62,3 +63,14 @@ class PromptOut(BaseModel):
     text: str
     # Campus date the prompt is for, e.g. "2026-09-28".
     date: str
+
+
+class PublishRequest(BaseModel):
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)] | None = None
+
+
+class PublishResponse(BaseModel):
+    # Never author_id (hard rule 1), and no exact publish time: only the upper bound of the delay.
+    id: uuid.UUID
+    status: str
+    live_within_minutes: int
