@@ -13,15 +13,87 @@ const STEPS = [
 
 const STEP_MS = 620;
 
+type StepState = "done" | "active" | "pending";
+
 type RecordProcessingStageProps = {
   onDone: () => void;
   topInset: number;
 };
 
+type StepRowProps = {
+  label: string;
+  state: StepState;
+  spin: Animated.Value;
+  pulse: Animated.Value;
+};
+
+function StepRow({ label, state, spin, pulse }: StepRowProps) {
+  const theme = useTheme();
+  const pop = useRef(new Animated.Value(state === "done" ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (state !== "done") return;
+    pop.setValue(0.4);
+    Animated.spring(pop, {
+      toValue: 1,
+      friction: 4.5,
+      tension: 140,
+      useNativeDriver: true,
+    }).start();
+  }, [state, pop]);
+
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+  const ringScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
+  const ringOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] });
+  const washOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.7] });
+
+  return (
+    <View style={[styles.step, { borderBottomColor: theme.line }]}>
+      {state === "active" ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.activeWash, { backgroundColor: theme.tint, opacity: washOpacity }]}
+        />
+      ) : null}
+      <View style={styles.state}>
+        {state === "done" ? (
+          <Animated.View
+            style={[styles.doneDisc, { backgroundColor: theme.accent, transform: [{ scale: pop }] }]}
+          >
+            <Ionicons name="checkmark" size={13} color={theme.onAccent} />
+          </Animated.View>
+        ) : null}
+        {state === "active" ? (
+          <Animated.View
+            style={[
+              styles.activeRing,
+              {
+                borderColor: theme.line,
+                borderTopColor: theme.accent,
+                borderRightColor: theme.accent,
+                opacity: ringOpacity,
+                transform: [{ rotate }, { scale: ringScale }],
+              },
+            ]}
+          />
+        ) : null}
+        {state === "pending" ? (
+          <View style={[styles.pendingRing, { borderColor: theme.controlLine }]} />
+        ) : null}
+      </View>
+      <Text style={[styles.stepLabel, { color: state === "pending" ? theme.ink3 : theme.ink }]}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 export function RecordProcessingStage({ onDone, topInset }: RecordProcessingStageProps) {
   const theme = useTheme();
   const [activeStep, setActiveStep] = useState(0);
   const spin = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
+  const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -49,7 +121,49 @@ export function RecordProcessingStage({ onDone, topInset }: RecordProcessingStag
     return () => loop.stop();
   }, [spin]);
 
-  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, {
+          toValue: 1,
+          duration: 1100,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmer, {
+          toValue: 0,
+          duration: 1100,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [shimmer]);
+
+  const shimmerOpacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] });
 
   return (
     <View style={[styles.root, { paddingTop: topInset + 56 }]}>
@@ -59,8 +173,12 @@ export function RecordProcessingStage({ onDone, topInset }: RecordProcessingStag
         <View style={styles.lines}>
           <View style={[styles.line, { width: 160, backgroundColor: theme.ink }]} />
           <View style={[styles.line, { width: 138, backgroundColor: theme.ink }]} />
-          <View style={[styles.line, { width: 150, backgroundColor: theme.waveMuted }]} />
-          <View style={[styles.line, { width: 96, backgroundColor: theme.waveMuted }]} />
+          <Animated.View
+            style={[styles.line, { width: 150, backgroundColor: theme.waveMuted, opacity: shimmerOpacity }]}
+          />
+          <Animated.View
+            style={[styles.line, { width: 96, backgroundColor: theme.waveMuted, opacity: shimmerOpacity }]}
+          />
         </View>
       </View>
 
@@ -71,38 +189,9 @@ export function RecordProcessingStage({ onDone, topInset }: RecordProcessingStag
 
       <View accessibilityLabel="Processing, please wait" style={[styles.steps, { borderTopColor: theme.line }]}>
         {STEPS.map((label, index) => {
-          const done = index < activeStep;
-          const active = index === activeStep;
-          return (
-            <View key={label} style={[styles.step, { borderBottomColor: theme.line }]}>
-              <View style={styles.state}>
-                {done ? (
-                  <View style={[styles.doneDisc, { backgroundColor: theme.accent }]}>
-                    <Ionicons name="checkmark" size={13} color={theme.onAccent} />
-                  </View>
-                ) : null}
-                {active ? (
-                  <Animated.View
-                    style={[
-                      styles.activeRing,
-                      {
-                        borderColor: theme.line,
-                        borderTopColor: theme.accent,
-                        borderRightColor: theme.accent,
-                        transform: [{ rotate }],
-                      },
-                    ]}
-                  />
-                ) : null}
-                {!done && !active ? (
-                  <View style={[styles.pendingRing, { borderColor: theme.controlLine }]} />
-                ) : null}
-              </View>
-              <Text style={[styles.stepLabel, { color: done || active ? theme.ink : theme.ink3 }]}>
-                {label}
-              </Text>
-            </View>
-          );
+          const state: StepState =
+            index < activeStep ? "done" : index === activeStep ? "active" : "pending";
+          return <StepRow key={label} label={label} state={state} spin={spin} pulse={pulse} />;
         })}
       </View>
     </View>
@@ -149,6 +238,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  activeWash: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   state: {
     width: 22,

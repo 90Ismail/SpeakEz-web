@@ -212,27 +212,43 @@ export function RecordPlaceStage({
           selected={choice === "campus"}
           onPress={() => onChangeChoice("campus")}
         />
-        <PlaceOption
-          title="Draft"
-          description="Locally, as a voice note journal — only you can open it."
-          icon="book-outline"
-          selected={choice === "draft"}
-          onPress={() => onChangeChoice("draft")}
-        />
         <View style={styles.spacer} />
-        <Pressable
-          onPress={onContinue}
-          accessibilityRole="button"
-          accessibilityLabel={
-            choice === "draft" ? "Continue with a private draft" : `Continue with ${chosen.name}`
-          }
-          style={({ pressed }) => [
-            styles.continue,
-            { backgroundColor: theme.ink, opacity: pressed ? pressedOpacity.soft : 1 },
-          ]}
-        >
-          <Text style={[styles.continueLabel, { color: theme.surface }]}>Continue</Text>
-        </Pressable>
+        <View style={styles.footer}>
+          <Pressable
+            onPress={() => onChangeChoice("draft")}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: choice === "draft" }}
+            accessibilityLabel="Locally. Keep it as a voice note journal, only for you."
+            style={({ pressed }) => [
+              styles.locally,
+              {
+                borderColor: choice === "draft" ? theme.ink : theme.controlLine,
+                backgroundColor:
+                  choice === "draft" ? theme.accentSoft : pressed ? theme.tint : theme.surfaceClear,
+              },
+            ]}
+          >
+            <Ionicons
+              name="book-outline"
+              size={17}
+              color={choice === "draft" ? theme.accentText : theme.ink}
+            />
+            <Text style={[styles.locallyLabel, { color: theme.ink }]}>Locally</Text>
+          </Pressable>
+          <Pressable
+            onPress={onContinue}
+            accessibilityRole="button"
+            accessibilityLabel={
+              choice === "draft" ? "Continue with a private draft" : `Continue with ${chosen.name}`
+            }
+            style={({ pressed }) => [
+              styles.continue,
+              { backgroundColor: theme.ink, opacity: pressed ? pressedOpacity.soft : 1 },
+            ]}
+          >
+            <Text style={[styles.continueLabel, { color: theme.surface }]}>Continue</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -342,7 +358,25 @@ const styles = StyleSheet.create({
   spacer: {
     flex: 1,
   },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+  },
+  locally: {
+    height: 52,
+    paddingHorizontal: 18,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  locallyLabel: {
+    ...textStyle.bodyStrong,
+  },
   continue: {
+    flex: 1,
     height: 52,
     borderRadius: radius.pill,
     alignItems: "center",

@@ -366,7 +366,6 @@ export default function StoryScreen() {
         <View style={styles.mapHeader}>
           <StoryMap landmark={landmark} height={HEADER_HEIGHT} listening={player.playing} />
           <Fade direction="top" height={96} />
-          <Fade direction="bottom" height={55} />
           {playbackStarted ? (
             <View pointerEvents="none" style={styles.listeningWrap}>
               <View style={[styles.listeningChip, { backgroundColor: theme.ink, borderColor: theme.ink }]}>
