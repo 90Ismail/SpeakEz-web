@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     email_pepper: str = "change-me-too"
     allowed_email_domain: str = "umn.edu"
     resend_api_key: str = ""
+    resend_from: str = ""
     unlock_radius_m: int = 150
     demo_mode: bool = False  # compose and .env.example turn it on for the demo
 

@@ -8,7 +8,7 @@ from .cache import close_redis
 from .config import get_settings
 from .db import engine
 from .queue import close_arq_pool
-from .routes import health, landmarks, media, notes
+from .routes import auth, health, landmarks, media, notes, reactions
 
 
 @asynccontextmanager
@@ -28,6 +28,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
+app.include_router(reactions.router)
 app.include_router(health.router)
 app.include_router(notes.router)
 app.include_router(landmarks.router)

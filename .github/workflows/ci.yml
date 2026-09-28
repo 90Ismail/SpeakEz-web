@@ -68,6 +68,8 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - name: Session tests
+        run: npm run test:session
       - name: Typecheck
         run: npm run typecheck
       - name: No raw hex outside theme

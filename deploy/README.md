@@ -240,7 +240,8 @@ EXPO_PUBLIC_DEMO_LAT=44.97510 EXPO_PUBLIC_DEMO_LNG=-93.23580 \
 npx expo start
 ```
 
-`DEMO_MODE=true` keeps the placeholder sign-in.
+`DEMO_MODE=true` keeps the shared demo account. For real email OTP sign-in, set
+`DEMO_MODE=false`, `RESEND_API_KEY`, and `RESEND_FROM` (a verified sender); see the root README.
 
 `EXPO_PUBLIC_DEMO_LAT` / `EXPO_PUBLIC_DEMO_LNG` are what make the demo work away
 from campus, and they are **required for the judge path**. The server always runs
@@ -272,8 +273,9 @@ landing page opens in Safari, and the tap there does the handoff.
 
 ## What still isn't built
 
-`DEMO_MODE=true` is required: real OTP/JWT sign-in is not implemented, so every
-request acts as the seeded "early tester" account. Reactions aren't persisted.
+`DEMO_MODE=true` uses the seeded "early tester" account without email setup.
+Real OTP/JWT sign-in is available with Resend configured and `DEMO_MODE=false`.
+Reactions persist per account (the demo account is shared between phones).
 Replies now persist (they upload through `POST /notes/{id}/replies`) but the
 Journal/Saved tabs still read seeded data. None of these block the Tuesday demo.
 

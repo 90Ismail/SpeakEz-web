@@ -1,3 +1,5 @@
+import { authenticatedFetch } from "./session";
+import type { ReactionType } from "./reactions";
 import { API_URL } from "./config";
 import type { MapNote } from "./notes";
 
@@ -33,25 +35,25 @@ export class ApiError extends Error {
   }
 }
 
-let accessToken: string | null = null;
-
-export function setAccessToken(token: string | null): void {
-  accessToken = token;
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await authenticatedFetch(`${API_URL}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...init?.headers,
-    },
+    headers: { "Content-Type": "application/json", ...init?.headers },
   });
   if (!response.ok) {
-    throw new ApiError(response.status, `SpeakEz API ${response.status} for ${path}`);
+    const body = await response.json().catch(() => null);
+    throw new ApiError(response.status, typeof body?.detail === "string" ? body.detail : "Could not save your response. Try again.");
   }
   return (await response.json()) as T;
+}
+
+export async function fetchReaction(id: string): Promise<ReactionType | null> {
+  return (await request<{ type: ReactionType | null }>(`/notes/${id}/reactions`)).type;
+}
+export async function saveReaction(id: string, type: ReactionType | null): Promise<ReactionType | null> {
+  return (await request<{ type: ReactionType | null }>(`/notes/${id}/reactions`, {
+    method: "POST", body: JSON.stringify({ type }),
+  })).type;
 }
 
 export type UnlockWord = {

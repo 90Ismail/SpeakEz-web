@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
-import { Animated, BackHandler, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, BackHandler, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconButton } from "../src/components/IconButton";
 import { fonts, motion, radius, space, textStyle, type, useReducedMotion, useTheme } from "../src/theme";
+
+import { signOut, useSession } from "../src/session";
 
 const DRAWER_WIDTH = 320;
 /** Rows bleed into the gutter so the pressed tint spans edge to edge. */
@@ -49,6 +51,7 @@ function DrawerItem({ icon, label, meta, variant = "primary", onPress, accessibi
  * 320-wide drawer, slides it in on mount and slides it back out before popping.
  */
 export default function ProfileScreen() {
+  const session = useSession();
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -144,7 +147,7 @@ export default function ProfileScreen() {
               <Text style={[styles.who, { color: theme.ink2 }]}>Anonymous student</Text>
               <View style={styles.verified}>
                 <Ionicons name="checkmark-circle-outline" size={15} color={theme.accentText} />
-                <Text style={[styles.verifiedLabel, { color: theme.accentText }]}>UMN verified</Text>
+                <Text style={[styles.verifiedLabel, { color: theme.accentText }]}>{session.signedIn ? "UMN verified" : "Demo account"}</Text>
               </View>
             </View>
           </View>
@@ -165,6 +168,16 @@ export default function ProfileScreen() {
           </View>
         </View>
         <View>
+          <DrawerItem
+            icon={session.signedIn ? "log-out-outline" : "log-in-outline"}
+            label={session.signedIn ? "Sign out" : "Sign in with UMN email"}
+            accessibilityLabel={session.signedIn ? "Sign out" : "Sign in with UMN email"}
+            onPress={() => {
+              if (!session.signedIn) { router.push("/(auth)/sign-in"); return; }
+              void signOut().then(() => router.replace("/(auth)/sign-in"))
+                .catch(() => Alert.alert("Could not sign out", "Check your connection and try again."));
+            }}
+          />
           <DrawerItem
             icon="settings-outline"
             label="Settings"

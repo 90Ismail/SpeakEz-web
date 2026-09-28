@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +16,8 @@ import { OnboardingButton, OnboardingTextButton } from "../../src/components/Onb
 import { OnboardingDots } from "../../src/components/OnboardingDots";
 import { TopBar } from "../../src/components/TopBar";
 import { pressed, radius, space, textStyle, useTheme } from "../../src/theme";
+
+import { sendCode, verifyCode } from "../../src/session";
 
 const CODE_LENGTH = 6;
 
@@ -34,6 +36,14 @@ export default function SignInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const codeInputs = useRef<Array<TextInput | null>>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+  useEffect(() => {
+    if (!cooldown) return;
+    const timer = setTimeout(() => setCooldown((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
   const [emailFocused, setEmailFocused] = useState(false);
@@ -44,7 +54,7 @@ export default function SignInScreen() {
   const localPart = localPartOf(email);
   const domain = domainOf(email);
   const invalidDomain = domain.length > 0 && !"umn.edu".startsWith(domain);
-  const emailValid = !invalidDomain && /^[a-z0-9][a-z0-9._-]*$/.test(localPart);
+  const emailValid = (!email.includes("@") || domain === "umn.edu") && !invalidDomain && /^[a-z0-9][a-z0-9._-]*$/.test(localPart);
   const fullEmail = `${localPart}@umn.edu`;
   const codeComplete = code.every((digit) => digit.length === 1);
   const canSendCode = emailValid && over18;
@@ -53,6 +63,8 @@ export default function SignInScreen() {
   const emailLineColor = invalidDomain ? theme.danger : emailFocused ? theme.accent : theme.line;
 
   const handleBack = () => {
+    if (busy) return;
+    setError(null);
     if (step === 2) {
       setStep(1);
       return;
@@ -60,10 +72,18 @@ export default function SignInScreen() {
     router.back();
   };
 
-  const handleSendCode = () => {
-    if (!canSendCode) return;
-    setCode(Array(CODE_LENGTH).fill(""));
-    setStep(2);
+  const handleSendCode = async () => {
+    if (!canSendCode || busy || cooldown > 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await sendCode(fullEmail);
+      setCode(Array(CODE_LENGTH).fill(""));
+      setCooldown(60);
+      setStep(2);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send your code.");
+    } finally { setBusy(false); }
   };
 
   const handleCodeChange = (value: string, index: number) => {
@@ -100,9 +120,16 @@ export default function SignInScreen() {
     setCode(next);
   };
 
-  const handleVerify = () => {
-    if (!codeComplete) return;
-    router.replace("/");
+  const handleVerify = async () => {
+    if (!codeComplete || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await verifyCode(fullEmail, code.join(""), over18);
+      router.replace("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not verify your code.");
+    } finally { setBusy(false); }
   };
 
   return (
@@ -118,6 +145,7 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {error ? <Text accessibilityRole="alert" style={[styles.errorText, { color: theme.danger }]}>{error}</Text> : null}
           {step === 1 ? (
             <>
               <View style={[styles.badge, { backgroundColor: theme.accentSoft, borderColor: theme.accentLine }]}>
@@ -135,6 +163,7 @@ export default function SignInScreen() {
                 <View style={[styles.input, { backgroundColor: theme.surface, borderColor: emailLineColor }]}>
                   <TextInput
                     value={email}
+                    editable={!busy}
                     onChangeText={setEmail}
                     onFocus={() => setEmailFocused(true)}
                     onBlur={() => setEmailFocused(false)}
@@ -191,11 +220,11 @@ export default function SignInScreen() {
               <View style={[styles.keep, { borderTopColor: theme.line }]}>
                 <Text style={[styles.keepLabel, { color: theme.ink2 }]}>What we keep</Text>
                 <Text style={[styles.keepText, { color: theme.ink }]}>
-                  One &quot;verified&quot; flag. No email, name or student ID.
+                  A private account identifier to recognize you next time. No email, name or student ID.
                 </Text>
               </View>
               <View style={styles.footer}>
-                <OnboardingButton label="Send code" onPress={handleSendCode} disabled={!canSendCode} />
+                <OnboardingButton label={busy ? "Sending…" : cooldown > 0 ? `Send again in ${cooldown}s` : "Send code"} onPress={handleSendCode} disabled={!canSendCode || busy || cooldown > 0} />
                 <View style={styles.finePrint}>
                   <Text style={[styles.finePrintLead, { color: theme.ink3 }]}>
                     By continuing you agree to the
@@ -228,7 +257,8 @@ export default function SignInScreen() {
                     onBlur={() => setFocusedDigit((current) => (current === index ? null : current))}
                     keyboardType="number-pad"
                     inputMode="numeric"
-                    maxLength={1}
+                    maxLength={CODE_LENGTH}
+                    editable={!busy}
                     autoFocus={index === 0}
                     textContentType={index === 0 ? "oneTimeCode" : "none"}
                     accessibilityLabel={`Code digit ${index + 1} of ${CODE_LENGTH}`}
@@ -244,14 +274,14 @@ export default function SignInScreen() {
                 ))}
               </View>
               <View style={styles.footer}>
-                <OnboardingButton label="Verify" onPress={handleVerify} disabled={!codeComplete} />
+                <OnboardingButton label={busy ? "Verifying…" : "Verify"} onPress={handleVerify} disabled={!codeComplete || busy} />
                 <OnboardingTextButton
-                  label="Send it again"
+                  label={cooldown > 0 ? `Send again in ${cooldown}s` : "Send it again"}
                   tone="accent"
-                  onPress={() => {}}
+                  onPress={handleSendCode}
                   accessibilityHint="Resends the code to your UMN email"
                 />
-                <OnboardingTextButton label="Use a different email" onPress={() => setStep(1)} />
+                <OnboardingTextButton label="Use a different email" onPress={() => { if (!busy) { setError(null); setStep(1); } }} />
               </View>
             </>
           )}

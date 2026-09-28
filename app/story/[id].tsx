@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { unlockNote, type Reply } from "../../src/api";
+import { fetchReaction, saveReaction, unlockNote, type Reply } from "../../src/api";
 import { landmarkById, type CampusLandmark } from "../../src/campusLandmarks";
 import { IconButton } from "../../src/components/IconButton";
 import { ReactionButton } from "../../src/components/ReactionButton";
@@ -225,6 +225,9 @@ export default function StoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [saved, setSaved] = useState(false);
+  const [reactionBusy, setReactionBusy] = useState(false);
+  const [reactionReady, setReactionReady] = useState(false);
+  const [reactionError, setReactionError] = useState<string | null>(null);
   const [reaction, setReaction] = useState<ReactionType | null>(null);
   const [transcriptVisible, setTranscriptVisible] = useState(true);
   const [trackWidth, setTrackWidth] = useState(0);
@@ -258,6 +261,27 @@ export default function StoryScreen() {
       cancelled = true;
     };
   }, [access, note, position]);
+
+  useEffect(() => {
+    if (access !== "unlocked" || !note) return;
+    let cancelled = false;
+    setReactionReady(false);
+    fetchReaction(note.id).then((value) => {
+      if (!cancelled) { setReaction(value); setReactionReady(true); }
+    }).catch(() => {
+      if (!cancelled) setReactionError("Could not load your response. Reopen this story nearby to try again.");
+    });
+    return () => { cancelled = true; };
+  }, [access, note]);
+
+  async function handleReaction(kind: ReactionType) {
+    if (!note || reactionBusy || !reactionReady) return;
+    setReactionBusy(true);
+    setReactionError(null);
+    try { setReaction(await saveReaction(note.id, reaction === kind ? null : kind)); }
+    catch (err) { setReactionError(err instanceof Error ? err.message : "Could not save your response."); }
+    finally { setReactionBusy(false); }
+  }
 
   const player = useNotePlayer(audioUrl, durationSec);
   const timings = useMemo(
@@ -518,14 +542,14 @@ export default function StoryScreen() {
                               key={item.type}
                               label={item.label}
                               selected={reaction === item.type}
-                              onPress={() =>
-                                setReaction((current) => (current === item.type ? null : item.type))
-                              }
+                              disabled={reactionBusy || !reactionReady}
+                              onPress={() => { void handleReaction(item.type); }}
                             />
                           ))}
                         </View>
                       ))}
                     </View>
+                    {reactionError ? <Text accessibilityRole="alert" style={[styles.caps, { color: theme.danger }]}>{reactionError}</Text> : null}
                     {reaction !== null && (
                       <Text style={[styles.caps, styles.heardByMany, { color: theme.ink3 }]}>
                         HEARD BY MANY
