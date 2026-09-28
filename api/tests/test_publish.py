@@ -6,7 +6,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from app.auth.deps import PLACEHOLDER_ACCOUNT_ID
+from app.auth.deps import PLACEHOLDER_ACCOUNT_ID, CurrentUser, current_user
 from app.db import get_session
 from app.repositories import moderation as moderation_repo
 from app.repositories import notes as notes_repo
@@ -163,6 +163,7 @@ def client(db):
     app = FastAPI()
     app.include_router(notes_routes.router)
     app.dependency_overrides[get_session] = lambda: FakeSession()
+    app.dependency_overrides[current_user] = lambda: CurrentUser(id=AUTHOR_ID)
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
 
 
