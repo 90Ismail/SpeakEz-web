@@ -1,0 +1,707 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
+import MapView, { Marker } from "react-native-maps";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { landmarkById, type CampusLandmark } from "../../src/campusLandmarks";
+import { Caps } from "../../src/components/Caps";
+import { IconButton } from "../../src/components/IconButton";
+import { ReactionButton } from "../../src/components/ReactionButton";
+import { Waveform } from "../../src/components/Waveform";
+import { USE_GOOGLE_ON_IOS } from "../../src/config";
+import { formatDistanceUpper, haversineMeters, type LatLng } from "../../src/geo";
+import { googleMapStyle } from "../../src/mapStyle";
+import { formatClock, formatRate, useMockPlayer } from "../../src/Player";
+import { REACTIONS, type ReactionType } from "../../src/reactions";
+import { SEED_NOTES, seedNoteById, type SeedNote } from "../../src/seedNotes";
+import { fonts, fontWeight, lineHeight, radius, space, type, useTheme, useThemeMode } from "../../src/theme";
+import { buildTimings, currentParagraphAt } from "../../src/transcript";
+
+const MAP_LATITUDE_DELTA = 0.006;
+const HEADER_HEIGHT = 252;
+const STRIP_HEIGHT = 168;
+const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function bearingDegrees(from: LatLng, to: LatLng): number {
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const lat1 = toRadians(from.latitude);
+  const lat2 = toRadians(to.latitude);
+  const deltaLng = toRadians(to.longitude - from.longitude);
+  const y = Math.sin(deltaLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLng);
+  return (Math.atan2(y, x) * 180) / Math.PI;
+}
+
+function compassDirection(degrees: number): string {
+  const normalized = ((degrees % 360) + 360) % 360;
+  return COMPASS[Math.round(normalized / 45) % 8];
+}
+
+function waveSeed(id: string): number {
+  let hash = 0;
+  for (let index = 0; index < id.length; index += 1) {
+    hash = (hash * 31 + id.charCodeAt(index)) % 1000000;
+  }
+  return hash || 1;
+}
+
+type NextStory = {
+  note: SeedNote;
+  landmark: CampusLandmark;
+  meters: number;
+  direction: string;
+};
+
+function nearestOtherStory(note: SeedNote, landmark: CampusLandmark): NextStory | null {
+  let nearest: NextStory | null = null;
+  for (const candidate of SEED_NOTES) {
+    if (candidate.id === note.id) continue;
+    const candidateLandmark = landmarkById(candidate.landmarkId);
+    if (!candidateLandmark) continue;
+    const meters = haversineMeters(landmark.coordinate, candidateLandmark.coordinate);
+    if (!nearest || meters < nearest.meters) {
+      nearest = {
+        note: candidate,
+        landmark: candidateLandmark,
+        meters,
+        direction: compassDirection(bearingDegrees(landmark.coordinate, candidateLandmark.coordinate)),
+      };
+    }
+  }
+  return nearest;
+}
+
+type FadeProps = {
+  height: number;
+  direction?: "top" | "bottom";
+};
+
+function Fade({ height, direction = "bottom" }: FadeProps) {
+  const theme = useTheme();
+  const opacities = direction === "bottom" ? [0.08, 0.28, 0.55, 0.85] : [0.85, 0.55, 0.28, 0.08];
+  const band = height / opacities.length;
+  return (
+    <View
+      pointerEvents="none"
+      style={[styles.fade, direction === "bottom" ? styles.fadeBottom : styles.fadeTop, { height }]}
+    >
+      {opacities.map((opacity, index) => (
+        <View key={`${direction}-${index}`} style={{ height: band, backgroundColor: theme.bg, opacity }} />
+      ))}
+    </View>
+  );
+}
+
+type StoryMapProps = {
+  landmark: CampusLandmark;
+  height: number;
+  listening?: boolean;
+};
+
+function StoryMap({ landmark, height, listening = false }: StoryMapProps) {
+  const theme = useTheme();
+  const themeMode = useThemeMode();
+  const { width } = useWindowDimensions();
+  const useGoogle = Platform.OS === "android" || USE_GOOGLE_ON_IOS;
+  const initialRegion = {
+    latitude: landmark.coordinate.latitude,
+    longitude: landmark.coordinate.longitude,
+    latitudeDelta: MAP_LATITUDE_DELTA,
+    longitudeDelta: MAP_LATITUDE_DELTA * (width / height),
+  };
+  return (
+    <View pointerEvents="none" style={[styles.mapWrap, { height }]}>
+      <MapView
+        style={StyleSheet.absoluteFill}
+        initialRegion={initialRegion}
+        mapType={useGoogle ? "standard" : "mutedStandard"}
+        customMapStyle={useGoogle ? googleMapStyle(themeMode) : undefined}
+        showsPointsOfInterests={Platform.OS === "ios"}
+        scrollEnabled={false}
+        zoomEnabled={false}
+        rotateEnabled={false}
+        pitchEnabled={false}
+        toolbarEnabled={false}
+        loadingEnabled
+        loadingBackgroundColor={theme.mapGround}
+        loadingIndicatorColor={theme.accent}
+        pointerEvents="none"
+      >
+        <Marker coordinate={landmark.coordinate} anchor={{ x: 0.5, y: 0.5 }}>
+          <View style={styles.pinWrap}>
+            {listening && (
+              <View
+                style={[styles.pinHalo, { backgroundColor: theme.accentWash, borderColor: theme.accentLine }]}
+              />
+            )}
+            <View style={[styles.pinDot, { backgroundColor: theme.accent, borderColor: theme.ring }]} />
+          </View>
+        </Marker>
+      </MapView>
+    </View>
+  );
+}
+
+export default function StoryScreen() {
+  const params = useLocalSearchParams<{ id?: string | string[]; unlocked?: string | string[] }>();
+  const noteId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const unlockedParam = Array.isArray(params.unlocked) ? params.unlocked[0] : params.unlocked;
+  const note = noteId ? seedNoteById(noteId) : undefined;
+  const landmark = note ? landmarkById(note.landmarkId) : undefined;
+  const durationSec = note?.durationSec ?? 0;
+
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const player = useMockPlayer(durationSec);
+  const [view, setView] = useState<"story" | "playing">("story");
+  const [saved, setSaved] = useState(false);
+  const [reaction, setReaction] = useState<ReactionType | null>(null);
+  const [transcriptVisible, setTranscriptVisible] = useState(true);
+  const [trackWidth, setTrackWidth] = useState(0);
+
+  const timings = useMemo(() => buildTimings(note?.body ?? [], durationSec), [note, durationSec]);
+  const next = useMemo(
+    () => (note && landmark ? nearestOtherStory(note, landmark) : null),
+    [note, landmark],
+  );
+  const unlocked = unlockedParam !== "0";
+  const progress = durationSec > 0 ? player.currentTime / durationSec : 0;
+  const currentIndex = currentParagraphAt(timings, player.currentTime);
+
+  const scrollRef = useRef<ScrollView>(null);
+  const transcriptOffsetRef = useRef(0);
+  const paragraphOffsetsRef = useRef<number[]>([]);
+  const lastScrolledIndexRef = useRef<number | null>(null);
+  const trackWidthRef = useRef(1);
+  const dragStartRef = useRef(0);
+  const durationRef = useRef(durationSec);
+  durationRef.current = durationSec;
+  const seekToRef = useRef(player.seekTo);
+  seekToRef.current = player.seekTo;
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (event) => {
+          const percent = clamp(event.nativeEvent.locationX / trackWidthRef.current, 0, 1);
+          dragStartRef.current = percent;
+          seekToRef.current(percent * durationRef.current);
+        },
+        onPanResponderMove: (_event, gesture) => {
+          const percent = clamp(dragStartRef.current + gesture.dx / trackWidthRef.current, 0, 1);
+          seekToRef.current(percent * durationRef.current);
+        },
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    paragraphOffsetsRef.current = [];
+    transcriptOffsetRef.current = 0;
+    lastScrolledIndexRef.current = null;
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [view]);
+
+  useEffect(() => {
+    if (view !== "playing" || !transcriptVisible) return;
+    if (lastScrolledIndexRef.current === null) {
+      lastScrolledIndexRef.current = currentIndex;
+      return;
+    }
+    if (lastScrolledIndexRef.current === currentIndex) return;
+    lastScrolledIndexRef.current = currentIndex;
+    const offset = paragraphOffsetsRef.current[currentIndex];
+    if (offset === undefined) return;
+    scrollRef.current?.scrollTo({
+      y: Math.max(transcriptOffsetRef.current + offset - 80, 0),
+      animated: true,
+    });
+  }, [currentIndex, view, transcriptVisible]);
+
+  if (!note || !landmark) {
+    return (
+      <View style={[styles.missing, { backgroundColor: theme.bg }]}>
+        <Caps tone="ink3">STORY NOT FOUND</Caps>
+        <Text style={[styles.missingText, { color: theme.ink2 }]}>
+          This voice note is no longer on the map.
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={({ pressed }) => [
+            styles.missingButton,
+            { backgroundColor: theme.accentSoft, opacity: pressed ? 0.75 : 1 },
+          ]}
+        >
+          <Text style={[styles.missingButtonText, { color: theme.accentText }]}>GO BACK</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const minutes = Math.max(1, Math.round(durationSec / 60));
+  const metaLine = `Anonymous student · ${minutes} min listen · Left ${note.dayLabel}`;
+  const nextLine = next
+    ? `${next.landmark.name.toUpperCase()} · ${formatDistanceUpper(next.meters)} ${next.direction}`
+    : "";
+
+  const startPlayback = () => {
+    if (!player.playing) player.toggle();
+    setView("playing");
+  };
+
+  const collapsePlayback = () => {
+    if (player.playing) player.toggle();
+    setView("story");
+  };
+
+  return (
+    <View style={[styles.screen, { backgroundColor: theme.bg }]}>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.scroll}
+        contentContainerStyle={view === "story" ? { paddingBottom: insets.bottom } : undefined}
+        showsVerticalScrollIndicator={false}
+      >
+        {view === "story" ? (
+          <>
+            <View style={styles.mapHeader}>
+              <StoryMap landmark={landmark} height={HEADER_HEIGHT} />
+              <Fade direction="top" height={96} />
+              <Fade direction="bottom" height={55} />
+              <IconButton
+                icon="chevron-down"
+                variant="glass"
+                accessibilityLabel="Back to map"
+                onPress={() => router.back()}
+                style={[styles.headerLeft, { top: insets.top + 6 }]}
+              />
+              <IconButton
+                icon={saved ? "bookmark" : "bookmark-outline"}
+                variant="glass"
+                accessibilityLabel={saved ? "Saved" : "Save story"}
+                onPress={() => setSaved((value) => !value)}
+                style={[styles.headerRight, { top: insets.top + 6 }]}
+              />
+            </View>
+            <View style={styles.article}>
+              <Caps tone="accent">{landmark.name.toUpperCase()}</Caps>
+              <View style={styles.headlineBlock}>
+                <Text style={[styles.headline, { color: theme.ink }]}>{note.title}</Text>
+              </View>
+              {unlocked ? (
+                <>
+                  <View style={styles.metaBlock}>
+                    <Text style={[styles.metaText, { color: theme.ink3 }]}>{metaLine}</Text>
+                  </View>
+                  <View style={[styles.audioBlock, { borderColor: theme.line }]}>
+                    <View style={styles.audioRow}>
+                      <Pressable
+                        onPress={startPlayback}
+                        accessibilityRole="button"
+                        accessibilityLabel="Play story"
+                        style={({ pressed }) => [
+                          styles.playButton,
+                          { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 },
+                        ]}
+                      >
+                        <Ionicons name="play" size={18} color={theme.onAccent} />
+                      </Pressable>
+                      <Waveform
+                        progress={progress}
+                        seed={waveSeed(note.id)}
+                        height={28}
+                        style={styles.audioWave}
+                      />
+                      <Text style={[styles.audioTime, { color: theme.ink2 }]}>
+                        {`${formatClock(player.currentTime)} / ${formatClock(durationSec)}`}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.transcript}>
+                    {note.body.map((text, index) => (
+                      <Text key={index} style={[styles.paragraph, { color: theme.ink }]}>
+                        {text}
+                      </Text>
+                    ))}
+                  </View>
+                  <View style={styles.endMark}>
+                    <Text style={[styles.endMarkText, { color: theme.ink3 }]}>·  ·  ·</Text>
+                  </View>
+                  <View style={styles.section}>
+                    <Caps tone="ink2">LEAVE A QUIET RESPONSE</Caps>
+                    <View style={styles.responses}>
+                      {[REACTIONS.slice(0, 2), REACTIONS.slice(2, 4)].map((row, rowIndex) => (
+                        <View key={rowIndex} style={styles.responseRow}>
+                          {row.map((item) => (
+                            <ReactionButton
+                              key={item.type}
+                              label={item.label}
+                              selected={reaction === item.type}
+                              onPress={() =>
+                                setReaction((current) => (current === item.type ? null : item.type))
+                              }
+                            />
+                          ))}
+                        </View>
+                      ))}
+                    </View>
+                    {reaction !== null && (
+                      <Caps tone="ink3" style={styles.heardByMany}>
+                        HEARD BY MANY
+                      </Caps>
+                    )}
+                  </View>
+                  {next && (
+                    <View style={styles.section}>
+                      <Caps tone="ink2">CONTINUE WALKING</Caps>
+                      <Pressable
+                        onPress={() => router.push(`/story/${next.note.id}`)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Next story: ${next.note.title}, ${formatDistanceUpper(next.meters)} ${next.direction} at ${next.landmark.name}`}
+                        style={({ pressed }) => [styles.nextRow, { opacity: pressed ? 0.7 : 1 }]}
+                      >
+                        <View style={[styles.nextCircle, { backgroundColor: theme.accentSoft }]}>
+                          <Ionicons name="arrow-forward" size={18} color={theme.accentText} />
+                        </View>
+                        <View style={styles.nextText}>
+                          <Caps tone="ink2" numberOfLines={1}>
+                            {nextLine}
+                          </Caps>
+                          <Text style={[styles.nextTitle, { color: theme.ink }]} numberOfLines={1}>
+                            {next.note.title}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={theme.ink3} />
+                      </Pressable>
+                    </View>
+                  )}
+                  <Pressable
+                    onPress={() => router.push("/care")}
+                    accessibilityRole="button"
+                    accessibilityLabel="If this feels close to home, support is here"
+                    style={({ pressed }) => [styles.support, { opacity: pressed ? 0.7 : 1 }]}
+                  >
+                    <Ionicons name="heart-outline" size={14} color={theme.ink3} />
+                    <Text style={[styles.supportText, { color: theme.ink2 }]}>
+                      If this feels close to home, support is here
+                    </Text>
+                  </Pressable>
+                </>
+              ) : (
+                <View style={styles.lockedRow}>
+                  <Ionicons name="lock-closed-outline" size={14} color={theme.ink3} />
+                  <Text style={[styles.lockedText, { color: theme.ink3 }]}>
+                    Walk closer to read and listen
+                  </Text>
+                </View>
+              )}
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.mapStrip}>
+              <StoryMap landmark={landmark} height={STRIP_HEIGHT} listening />
+              <Fade direction="top" height={80} />
+              <IconButton
+                icon="map-outline"
+                variant="glass"
+                accessibilityLabel="Back to story"
+                onPress={collapsePlayback}
+                style={[styles.headerRight, { top: insets.top + 6 }]}
+              />
+            </View>
+            <View style={[styles.nowPlaying, { borderColor: theme.line }]}>
+              <Caps tone="accent">{`${landmark.name.toUpperCase()}  ·  NOW PLAYING`}</Caps>
+              <Text style={[styles.nowTitle, { color: theme.ink }]} numberOfLines={1}>
+                {note.title}
+              </Text>
+              <View style={styles.nowControls}>
+                <Waveform
+                  progress={progress}
+                  seed={waveSeed(note.id)}
+                  height={26}
+                  style={styles.nowWave}
+                />
+                <Text style={[styles.nowTime, { color: theme.ink2 }]}>
+                  {`${formatClock(player.currentTime)} / ${formatClock(durationSec)}`}
+                </Text>
+              </View>
+              <View
+                style={styles.scrubber}
+                onLayout={(event) => {
+                  trackWidthRef.current = event.nativeEvent.layout.width;
+                  setTrackWidth(event.nativeEvent.layout.width);
+                }}
+                accessibilityRole="adjustable"
+                accessibilityLabel="Seek through the story"
+                accessibilityValue={{
+                  min: 0,
+                  max: durationSec,
+                  now: Math.round(player.currentTime),
+                }}
+                {...panResponder.panHandlers}
+              >
+                <View style={[styles.scrubberTrack, { backgroundColor: theme.waveMuted }]} />
+                <View
+                  style={[
+                    styles.scrubberProgress,
+                    { width: `${Math.round(progress * 100)}%`, backgroundColor: theme.accent },
+                  ]}
+                />
+                {trackWidth > 0 && (
+                  <View
+                    style={[
+                      styles.scrubberKnob,
+                      {
+                        left: clamp(progress * trackWidth - 8, 0, Math.max(trackWidth - 16, 0)),
+                        backgroundColor: theme.accent,
+                        borderColor: theme.ring,
+                      },
+                    ]}
+                  />
+                )}
+              </View>
+            </View>
+            {transcriptVisible && (
+              <View
+                style={styles.playingTranscript}
+                onLayout={(event) => {
+                  transcriptOffsetRef.current = event.nativeEvent.layout.y;
+                }}
+              >
+                {timings.map((timing) => {
+                  const isCurrent = timing.index === currentIndex;
+                  const color = isCurrent
+                    ? theme.ink
+                    : timing.index < currentIndex
+                      ? theme.ink2
+                      : theme.ink3;
+                  return (
+                    <View
+                      key={timing.index}
+                      style={styles.paragraphWrap}
+                      onLayout={(event) => {
+                        paragraphOffsetsRef.current[timing.index] = event.nativeEvent.layout.y;
+                      }}
+                    >
+                      {isCurrent && <View style={[styles.syncBar, { backgroundColor: theme.accent }]} />}
+                      <Text style={[styles.paragraph, { color }]}>{timing.text}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+      {view === "playing" && (
+        <>
+          <Fade direction="bottom" height={150} />
+          <View
+            pointerEvents="box-none"
+            style={[styles.playerWrap, { bottom: Math.max(insets.bottom, 12) }]}
+          >
+            <View
+              style={[
+                styles.playerBar,
+                {
+                  backgroundColor: theme.glass,
+                  borderColor: theme.glassStroke,
+                  shadowColor: theme.glassShadow,
+                },
+              ]}
+            >
+              <Pressable
+                onPress={player.cycleRate}
+                accessibilityRole="button"
+                accessibilityLabel="Playback speed"
+                accessibilityHint={`Current speed ${formatRate(player.rate)}. Tap to change.`}
+                style={({ pressed }) => [styles.playerButton, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Text style={[styles.playerSpeed, { color: theme.ink }]}>{formatRate(player.rate)}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => player.skip(-15)}
+                accessibilityRole="button"
+                accessibilityLabel="Back 15 seconds"
+                style={({ pressed }) => [styles.playerButton, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Ionicons name="arrow-undo-outline" size={19} color={theme.ink} />
+              </Pressable>
+              <Pressable
+                onPress={player.toggle}
+                accessibilityRole="button"
+                accessibilityLabel={player.playing ? "Pause story" : "Play story"}
+                style={({ pressed }) => [
+                  styles.playerPlay,
+                  { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <Ionicons name={player.playing ? "pause" : "play"} size={18} color={theme.onAccent} />
+              </Pressable>
+              <Pressable
+                onPress={() => player.skip(15)}
+                accessibilityRole="button"
+                accessibilityLabel="Forward 15 seconds"
+                style={({ pressed }) => [styles.playerButton, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Ionicons name="arrow-redo-outline" size={19} color={theme.ink} />
+              </Pressable>
+              <Pressable
+                onPress={() => setTranscriptVisible((value) => !value)}
+                accessibilityRole="button"
+                accessibilityLabel={transcriptVisible ? "Hide transcript" : "Show transcript"}
+                accessibilityState={{ selected: transcriptVisible }}
+                style={({ pressed }) => [styles.playerButton, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Ionicons
+                  name="chatbox-outline"
+                  size={18}
+                  color={transcriptVisible ? theme.ink : theme.ink3}
+                />
+              </Pressable>
+            </View>
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  scroll: { flex: 1 },
+  mapHeader: { overflow: "hidden" },
+  mapStrip: { overflow: "hidden" },
+  mapWrap: { width: "100%", overflow: "hidden" },
+  headerLeft: { position: "absolute", left: space.gutter },
+  headerRight: { position: "absolute", right: space.gutter },
+  fade: { position: "absolute", left: 0, right: 0 },
+  fadeTop: { top: 0 },
+  fadeBottom: { bottom: 0 },
+  pinWrap: { width: 60, height: 60, alignItems: "center", justifyContent: "center" },
+  pinHalo: { position: "absolute", width: 60, height: 60, borderRadius: 30, borderWidth: 1.5 },
+  pinDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2 },
+  article: { paddingTop: 16, paddingHorizontal: space.gutter, paddingBottom: 32 },
+  headlineBlock: { marginTop: 12, marginBottom: 16 },
+  headline: {
+    fontFamily: fonts.sans,
+    fontSize: type.display,
+    fontWeight: fontWeight.bold,
+    lineHeight: 35,
+    letterSpacing: -0.8,
+  },
+  metaBlock: { paddingTop: 10, paddingBottom: 20 },
+  metaText: { fontFamily: fonts.sans, fontSize: type.support },
+  audioBlock: {
+    paddingTop: 20,
+    paddingBottom: 18,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  audioRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+  audioWave: { flex: 1 },
+  audioTime: { fontFamily: fonts.sans, fontSize: type.support },
+  playButton: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  transcript: { paddingTop: 28, paddingBottom: 24, gap: 16 },
+  paragraph: { fontFamily: fonts.serif, fontSize: type.reading, lineHeight: lineHeight.reading },
+  endMark: { paddingBottom: 24, alignItems: "center" },
+  endMarkText: { fontFamily: fonts.serif, fontSize: type.body },
+  section: { paddingVertical: 24 },
+  responses: { marginTop: 12, gap: 8 },
+  responseRow: { flexDirection: "row", gap: 8 },
+  heardByMany: { marginTop: 8 },
+  nextRow: { marginTop: 12, flexDirection: "row", alignItems: "center", gap: 14, minHeight: 44 },
+  nextCircle: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  nextText: { flex: 1, gap: 3 },
+  nextTitle: {
+    fontFamily: fonts.sans,
+    fontSize: type.body,
+    fontWeight: fontWeight.bold,
+    lineHeight: 19,
+  },
+  support: { paddingTop: 14, minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8 },
+  supportText: { fontFamily: fonts.sans, fontSize: type.support, flex: 1 },
+  lockedRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 12 },
+  lockedText: { fontFamily: fonts.sans, fontSize: type.support },
+  nowPlaying: {
+    paddingVertical: 14,
+    paddingHorizontal: space.gutter,
+    gap: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  nowTitle: {
+    fontFamily: fonts.sans,
+    fontSize: type.body,
+    fontWeight: fontWeight.bold,
+    lineHeight: 18,
+  },
+  nowControls: { flexDirection: "row", alignItems: "center", gap: 14, paddingTop: 6 },
+  nowWave: { flex: 1 },
+  nowTime: { fontFamily: fonts.sans, fontSize: type.meta },
+  scrubber: { height: 20, justifyContent: "center" },
+  scrubberTrack: { position: "absolute", left: 0, right: 0, top: 8, height: 4, borderRadius: 2 },
+  scrubberProgress: { position: "absolute", left: 0, top: 8, height: 4, borderRadius: 2 },
+  scrubberKnob: { position: "absolute", top: 2, width: 16, height: 16, borderRadius: 8, borderWidth: 2 },
+  playingTranscript: {
+    paddingTop: 24,
+    paddingHorizontal: space.gutter,
+    paddingBottom: 120,
+    gap: 16,
+  },
+  paragraphWrap: { position: "relative" },
+  syncBar: { position: "absolute", left: -16, top: 6, bottom: 6, width: 2, borderRadius: 1 },
+  playerWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" },
+  playerBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    padding: 5,
+    borderRadius: 30,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+  playerButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  playerSpeed: { fontFamily: fonts.sans, fontSize: type.support },
+  playerPlay: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  missing: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: space.gutter },
+  missingText: { fontFamily: fonts.serif, fontSize: type.reading, textAlign: "center" },
+  missingButton: {
+    minHeight: 44,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+  },
+  missingButtonText: {
+    fontFamily: fonts.sans,
+    fontSize: type.support,
+    fontWeight: fontWeight.bold,
+    letterSpacing: 0.8,
+  },
+});
