@@ -22,7 +22,7 @@ import { formatDistanceUpper, haversineMeters, type LatLng } from "../../src/geo
 import { googleMapStyle } from "../../src/mapStyle";
 import { formatClock, formatRate, useMockPlayer } from "../../src/Player";
 import { REACTIONS, type ReactionType } from "../../src/reactions";
-import { SEED_NOTES, seedNoteById, type SeedNote } from "../../src/seedNotes";
+import { SEED_NOTES, seedNoteById } from "../../src/seedNotes";
 import {
   fonts,
   pressed as pressedOpacity,
@@ -68,14 +68,27 @@ function waveSeed(id: string): number {
   return hash || 1;
 }
 
+type StoryNote = {
+  id: string;
+  title: string;
+  landmarkId: string;
+  durationSec: number;
+  dayLabel: string;
+  body: string[];
+};
+
+function singleParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 type NextStory = {
-  note: SeedNote;
+  note: StoryNote;
   landmark: CampusLandmark;
   meters: number;
   direction: string;
 };
 
-function nearestOtherStory(note: SeedNote, landmark: CampusLandmark): NextStory | null {
+function nearestOtherStory(note: StoryNote, landmark: CampusLandmark): NextStory | null {
   let nearest: NextStory | null = null;
   for (const candidate of SEED_NOTES) {
     if (candidate.id === note.id) continue;
@@ -166,10 +179,34 @@ function StoryMap({ landmark, height, listening = false }: StoryMapProps) {
 }
 
 export default function StoryScreen() {
-  const params = useLocalSearchParams<{ id?: string | string[]; unlocked?: string | string[] }>();
-  const noteId = Array.isArray(params.id) ? params.id[0] : params.id;
-  const unlockedParam = Array.isArray(params.unlocked) ? params.unlocked[0] : params.unlocked;
-  const note = noteId ? seedNoteById(noteId) : undefined;
+  const params = useLocalSearchParams<{
+    id?: string | string[];
+    unlocked?: string | string[];
+    title?: string | string[];
+    landmarkId?: string | string[];
+    durationSec?: string | string[];
+    dayLabel?: string | string[];
+  }>();
+  const noteId = singleParam(params.id);
+  const paramTitle = singleParam(params.title);
+  const paramLandmarkId = singleParam(params.landmarkId);
+  const paramDurationSec = singleParam(params.durationSec);
+  const paramDayLabel = singleParam(params.dayLabel);
+  const unlockedParam = singleParam(params.unlocked);
+  const note = useMemo<StoryNote | undefined>(() => {
+    if (noteId && paramTitle && paramLandmarkId) {
+      const duration = Number(paramDurationSec ?? 0);
+      return {
+        id: noteId,
+        title: paramTitle,
+        landmarkId: paramLandmarkId,
+        durationSec: Number.isFinite(duration) ? duration : 0,
+        dayLabel: paramDayLabel ?? "",
+        body: [],
+      };
+    }
+    return noteId ? seedNoteById(noteId) : undefined;
+  }, [noteId, paramTitle, paramLandmarkId, paramDurationSec, paramDayLabel]);
   const landmark = note ? landmarkById(note.landmarkId) : undefined;
   const durationSec = note?.durationSec ?? 0;
 

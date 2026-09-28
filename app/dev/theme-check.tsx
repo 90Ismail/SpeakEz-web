@@ -8,7 +8,10 @@ import { NowPlayingBar } from "../../src/components/NowPlayingBar";
 import { ReactionButton } from "../../src/components/ReactionButton";
 import { TopBar } from "../../src/components/TopBar";
 import { Waveform } from "../../src/components/Waveform";
+import { landmarkById } from "../../src/campusLandmarks";
+import { CAMPUS_CENTER } from "../../src/config";
 import { PinCluster, PinLabel, PinUnlocked, YouAreHere } from "../../src/NotePins";
+import type { MapNote } from "../../src/notes";
 import { SEED_NOTES } from "../../src/seedNotes";
 import {
   fonts,
@@ -21,7 +24,17 @@ import {
   useThemeMode,
 } from "../../src/theme";
 
-const NOTE = SEED_NOTES[0];
+const SEED = SEED_NOTES[0];
+const SEED_LANDMARK = landmarkById(SEED.landmarkId);
+const NOTE: MapNote = {
+  id: SEED.id,
+  title: SEED.title,
+  landmarkId: SEED.landmarkId,
+  landmarkName: SEED_LANDMARK?.name ?? "University of Minnesota",
+  coordinate: SEED_LANDMARK?.coordinate ?? CAMPUS_CENTER,
+  durationSec: SEED.durationSec,
+  dayLabel: SEED.dayLabel,
+};
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const mode = useThemeMode();

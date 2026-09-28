@@ -1,20 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
-import { landmarkById } from "./campusLandmarks";
 import { Waveform } from "./components/Waveform";
 import { UNLOCK_RADIUS_M } from "./config";
 import { formatDistance } from "./geo";
-import type { SeedNote } from "./seedNotes";
+import type { MapNote } from "./notes";
 import { motion, pressed as pressedOpacity, radius, shadow, textStyle, useTheme } from "./theme";
 
 const CARD_HEIGHT = 460;
-const FADE_OPACITIES = [0.2, 0.45, 0.7, 0.9];
 
 type VoiceCardProps = {
-  note: SeedNote | null;
+  note: MapNote | null;
   distance: number | null;
-  onOpen: (note: SeedNote) => void;
+  onOpen: (note: MapNote) => void;
 };
 
 function seedFromId(id: string): number {
@@ -33,7 +31,7 @@ function formatDuration(seconds: number): string {
 
 export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
   const theme = useTheme();
-  const [rendered, setRendered] = useState<SeedNote | null>(null);
+  const [rendered, setRendered] = useState<MapNote | null>(null);
   const translateY = useRef(new Animated.Value(CARD_HEIGHT)).current;
 
   useEffect(() => {
@@ -60,7 +58,6 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
 
   if (!rendered) return null;
 
-  const landmark = landmarkById(rendered.landmarkId);
   const unlocked = distance !== null && distance <= UNLOCK_RADIUS_M;
   const minutes = Math.round(rendered.durationSec / 60);
   const lockedMessage =
@@ -84,9 +81,7 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
         onPress={unlocked ? () => onOpen(rendered) : undefined}
         accessibilityRole={unlocked ? "button" : "text"}
         accessibilityLabel={
-          unlocked
-            ? `Open story: ${rendered.title} · ${landmark?.name ?? ""}`
-            : `${rendered.title}, locked`
+          unlocked ? `Open story: ${rendered.title} · ${rendered.landmarkName}` : `${rendered.title}, locked`
         }
         accessibilityHint={unlocked ? undefined : lockedMessage}
         style={styles.content}
@@ -98,7 +93,7 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
         <View style={styles.locationRow}>
           <Ionicons name="location" size={12} color={theme.accentText} />
           <Text numberOfLines={1} style={[styles.location, { color: theme.accentText }]}>
-            {(landmark?.name ?? "University of Minnesota").toUpperCase()}
+            {rendered.landmarkName.toUpperCase()}
           </Text>
           {distance !== null ? (
             <Text style={[styles.distance, { color: theme.ink3 }]}>
@@ -131,20 +126,6 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
               <Text style={[styles.duration, { color: theme.ink2 }]}>
                 {`0:00 / ${formatDuration(rendered.durationSec)}`}
               </Text>
-            </View>
-
-            <View style={styles.excerpt}>
-              <Text
-                numberOfLines={3}
-                style={[styles.excerptText, { color: theme.ink2 }]}
-              >
-                {rendered.body.join("\n\n")}
-              </Text>
-              <View pointerEvents="none" style={styles.excerptFade}>
-                {FADE_OPACITIES.map((opacity, index) => (
-                  <View key={index} style={{ flex: 1, backgroundColor: theme.surface, opacity }} />
-                ))}
-              </View>
             </View>
           </>
         ) : (
@@ -222,19 +203,6 @@ const styles = StyleSheet.create({
   },
   duration: {
     ...textStyle.support,
-  },
-  excerpt: {
-    paddingTop: 14,
-  },
-  excerptText: {
-    ...textStyle.excerpt,
-  },
-  excerptFade: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 28,
   },
   lockedRow: {
     flexDirection: "row",

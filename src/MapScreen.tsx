@@ -1,10 +1,11 @@
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import MapView, { Circle, Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Circle, Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CAMPUS_LANDMARKS, landmarkById, type CampusLandmark } from "./campusLandmarks";
+import { fetchMapNotes, type MapBounds } from "./api";
+import { CAMPUS_LANDMARKS, type CampusLandmark } from "./campusLandmarks";
 import { Caps } from "./components/Caps";
 import { FloatingNav } from "./components/FloatingNav";
 import { IconButton } from "./components/IconButton";
@@ -15,7 +16,7 @@ import { setDemoEnabled, setFakePosition, useDemoState } from "./demo";
 import { haversineMeters, type LatLng } from "./geo";
 import { googleMapStyle } from "./mapStyle";
 import { CLUSTERS, NotePin, PinCluster, pinMarkerGeometry, pinStateFor, YouAreHere } from "./NotePins";
-import { SEED_NOTES, seedNoteById } from "./seedNotes";
+import type { MapNote } from "./notes";
 import { fonts, radius, space, textStyle, type, useTheme, useThemeMode } from "./theme";
 import { VoiceCard } from "./VoiceCard";
 import { ZONES } from "./zones";
@@ -32,6 +33,23 @@ function voicesNearbyLabel(count: number): string {
   return `${amount} ${count === 1 ? "voice" : "voices"} nearby`;
 }
 
+function boundsFromRegion(region: Region): MapBounds {
+  const halfLat = region.latitudeDelta / 2;
+  const halfLng = region.longitudeDelta / 2;
+  return {
+    west: Math.max(region.longitude - halfLng, -180),
+    south: Math.max(region.latitude - halfLat, -90),
+    east: Math.min(region.longitude + halfLng, 180),
+    north: Math.min(region.latitude + halfLat, 90),
+  };
+}
+
+/** Matches the API's ~200 m cache grid so panning within a cell does not refetch. */
+function boundsKey(bounds: MapBounds): string {
+  const snap = (value: number) => (Math.round(value / 0.002) * 0.002).toFixed(3);
+  return [bounds.west, bounds.south, bounds.east, bounds.north].map(snap).join(":");
+}
+
 export function MapScreen() {
   const theme = useTheme();
   const mode = useThemeMode();
@@ -40,8 +58,33 @@ export function MapScreen() {
   const mapRef = useRef<MapView | null>(null);
   const demo = useDemoState();
   const [livePosition, setLivePosition] = useState<LatLng | null>(null);
+  const [notes, setNotes] = useState<MapNote[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const pinPressAt = useRef(0);
+  const requestSeq = useRef(0);
+  const lastBoundsKey = useRef("");
+
+  const loadNotes = useCallback((bounds: MapBounds) => {
+    const key = boundsKey(bounds);
+    if (key === lastBoundsKey.current) return;
+    lastBoundsKey.current = key;
+    const seq = requestSeq.current + 1;
+    requestSeq.current = seq;
+    fetchMapNotes(bounds)
+      .then((next) => {
+        if (seq === requestSeq.current) setNotes(next);
+      })
+      .catch(() => {
+        if (seq === requestSeq.current) setNotes([]);
+      });
+  }, []);
+
+  useEffect(() => {
+    loadNotes(boundsFromRegion(DEFAULT_CAMERA));
+    return () => {
+      requestSeq.current += 1;
+    };
+  }, [loadNotes]);
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
@@ -83,17 +126,13 @@ export function MapScreen() {
   }, [userPosition]);
 
   const voicesNearby = useMemo(() => {
-    if (!userPosition) return SEED_NOTES.length;
-    return SEED_NOTES.filter((note) => {
-      const landmark = landmarkById(note.landmarkId);
-      return landmark ? haversineMeters(userPosition, landmark.coordinate) <= SHORT_WALK_M : false;
-    }).length;
-  }, [userPosition]);
+    if (!userPosition) return notes.length;
+    return notes.filter((note) => haversineMeters(userPosition, note.coordinate) <= SHORT_WALK_M).length;
+  }, [notes, userPosition]);
 
-  const selectedNote = selectedId ? seedNoteById(selectedId) ?? null : null;
-  const selectedLandmark = selectedNote ? landmarkById(selectedNote.landmarkId) : undefined;
+  const selectedNote = selectedId ? notes.find((note) => note.id === selectedId) ?? null : null;
   const selectedDistance =
-    selectedLandmark && userPosition ? haversineMeters(userPosition, selectedLandmark.coordinate) : null;
+    selectedNote && userPosition ? haversineMeters(userPosition, selectedNote.coordinate) : null;
 
   const usesGoogle = Platform.OS === "android" || USE_GOOGLE_ON_IOS;
 
@@ -120,6 +159,7 @@ export function MapScreen() {
         mapPadding={MAP_PADDING}
         onPress={handleMapPress}
         onLongPress={(event) => setFakePosition(event.nativeEvent.coordinate)}
+        onRegionChangeComplete={(region) => loadNotes(boundsFromRegion(region))}
       >
         {ZONES.map((zone) => (
           <Circle
@@ -145,16 +185,14 @@ export function MapScreen() {
             strokeWidth={1}
           />
         ) : null}
-        {SEED_NOTES.map((note) => {
-          const landmark = landmarkById(note.landmarkId);
-          if (!landmark) return null;
-          const distance = userPosition ? haversineMeters(userPosition, landmark.coordinate) : null;
+        {notes.map((note) => {
+          const distance = userPosition ? haversineMeters(userPosition, note.coordinate) : null;
           const geometry = pinMarkerGeometry(pinStateFor(distance));
           const selected = note.id === selectedId;
           return (
             <Marker
               key={note.id}
-              coordinate={landmark.coordinate}
+              coordinate={note.coordinate}
               anchor={geometry.anchor}
               centerOffset={geometry.centerOffset}
               zIndex={selected ? 2 : 1}
@@ -242,7 +280,18 @@ export function MapScreen() {
       <VoiceCard
         note={selectedNote}
         distance={selectedDistance}
-        onOpen={(note) => router.push(`/story/${note.id}`)}
+        onOpen={(note) =>
+          router.push({
+            pathname: "/story/[id]",
+            params: {
+              id: note.id,
+              title: note.title,
+              landmarkId: note.landmarkId,
+              durationSec: String(note.durationSec),
+              dayLabel: note.dayLabel,
+            },
+          })
+        }
       />
     </View>
   );

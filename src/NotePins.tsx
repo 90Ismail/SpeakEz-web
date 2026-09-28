@@ -1,10 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { landmarkById } from "./campusLandmarks";
 import { CHIP_RADIUS_M, UNLOCK_RADIUS_M } from "./config";
 import { formatDistance, formatDistanceUpper, type LatLng } from "./geo";
-import type { SeedNote } from "./seedNotes";
+import type { MapNote } from "./notes";
 import { fonts, radius, shadow, textStyle, type, useTheme } from "./theme";
 
 export type PinState = "dot" | "label" | "unlocked";
@@ -64,10 +63,8 @@ export function pinMarkerGeometry(state: PinState): MarkerGeometry {
   return { anchor: { x: 0.5, y: 0.5 }, centerOffset: { x: 0, y: 0 } };
 }
 
-function pinAccessibilityLabel(note: SeedNote, distance: number | null): string {
-  const landmark = landmarkById(note.landmarkId);
-  const parts = [note.title];
-  if (landmark) parts.push(landmark.name);
+function pinAccessibilityLabel(note: MapNote, distance: number | null): string {
+  const parts = [note.title, note.landmarkName];
   if (distance !== null) parts.push(`${formatDistance(distance)} away`);
   return parts.join(" · ");
 }
@@ -129,7 +126,7 @@ function PinShell({ width, height = PIN_HEIGHT, dotCenterX, selected, children }
 }
 
 type NotePinProps = {
-  note: SeedNote;
+  note: MapNote;
   distance: number | null;
   selected: boolean;
   onPress: () => void;
