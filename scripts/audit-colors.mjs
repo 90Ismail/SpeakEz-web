@@ -1,14 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 
-// The landing page's vendored QR encoder is independent of the app theme.
-const ALLOWED = new Set(["src/theme.ts", "src/mapStyle.ts", "deploy/landing/qrcode.min.js"]);
+const ALLOWED = new Set(["src/theme.ts", "src/mapStyle.ts"]);
+// deploy/ is the server-side landing page and its vendored libs, not app code.
+const IGNORED_DIRS = ["deploy/"];
 const HEX = /#[0-9A-Fa-f]{3,8}\b/g;
 
 const files = execSync("git ls-files", { encoding: "utf8" })
   .split("\n")
   .map((line) => line.trim())
-  .filter((file) => /\.(ts|tsx|js|jsx|mjs)$/.test(file) && !ALLOWED.has(file) && existsSync(file));
+  .filter((file) => /\.(ts|tsx|js|jsx|mjs)$/.test(file) && !ALLOWED.has(file) && !IGNORED_DIRS.some((dir) => file.startsWith(dir)) && existsSync(file));
 
 const findings = [];
 for (const file of files) {
