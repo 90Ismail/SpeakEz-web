@@ -1,4 +1,4 @@
-import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { useCallback, useEffect, useState } from "react";
 
 export type StoryPlayer = {
@@ -77,10 +77,20 @@ export function useMockPlayer(durationSec: number): StoryPlayer {
 
 /** Real playback through expo-audio when the note has a signed audio URL, else the mock clock. */
 export function useNotePlayer(source: string | null, durationSec: number): StoryPlayer {
-  const audio = useAudioPlayer(source ? { uri: source } : null, { updateInterval: 250 });
+  // downloadFirst caches the file right after /unlock, so playback and seeking
+  // never depend on the 60 s signed URL still being valid.
+  const audio = useAudioPlayer(source ? { uri: source } : null, {
+    updateInterval: 250,
+    downloadFirst: true,
+  });
   const status = useAudioPlayerStatus(audio);
   const mock = useMockPlayer(source ? 0 : durationSec);
   const [rate, setRate] = useState(1);
+
+  useEffect(() => {
+    if (!source) return;
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+  }, [source]);
 
   const toggle = useCallback(() => {
     if (!source) {

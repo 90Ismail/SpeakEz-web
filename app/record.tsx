@@ -130,6 +130,9 @@ export default function RecordScreen() {
 
   useEffect(() => {
     setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true }).catch(() => {});
+    return () => {
+      setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    };
   }, []);
 
   useEffect(() => {
