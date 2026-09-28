@@ -30,6 +30,28 @@ A map of voices instead of a feed.
 
 No followers. No counts. No performance. A voice, a place, and whoever walks by next.
 
+### Three kinds of note
+
+Every recording ends up as one of these. You pick on the "Where should this note go?" step:
+
+| Kind | Who hears it | Where it lives |
+| --- | --- | --- |
+| **Public post** | Anyone standing at the place | Pinned to a landmark on the map. Anonymous: nobody sees who posted it |
+| **Voice journal** | Only you | Your Journal tab. Never goes on the map |
+| **Draft** | Only you | Your Journal tab, until you post it or move it to your journal |
+
+### Finding your way around
+
+The bottom bar has five tabs, in this order:
+
+| Tab | What's there |
+| --- | --- |
+| **Map** | Public posts around campus. Walk close to unlock one |
+| **Journal** | Everything you've recorded: public posts, voice journal, drafts |
+| **Record** | Record a new note |
+| **Saved** | Other people's notes you saved from the map |
+| **Profile** | Recently heard, help and resources, settings |
+
 ## Why place matters
 
 A note about failing your first exam, recorded outside the building it happened in, hits different
@@ -69,6 +91,8 @@ Anonymity here is architecture, not a setting:
 ## What's live in the demo
 
 - Map of campus with live notes from the API, POI-muted Apple/Google styling, campus landmark layer.
+- Five-tab bottom bar (Map, Journal, Record, Saved, Profile) and a Journal tab split into public posts, voice journal and drafts.
+- Journal entries are enforced server-side: they never appear on `/map` and can never be unlocked.
 - Server-checked unlock, story screen, and real playback with word-synced transcript highlighting.
 - Seeded notes ship with generated voices and word timings, so the demo plays end to end immediately.
 - Dark mode, custom type system (Karla + Newsreader), and a dev theme-check screen.
@@ -99,7 +123,7 @@ Demo tour:
 | Layer | Choice | Why |
 | --- | --- | --- |
 | App | Expo SDK 57, React Native, TypeScript | One codebase, runs in Expo Go for the demo |
-| Navigation | expo-router | File-based screens: map, story, record, care |
+| Navigation | expo-router | File-based screens; five-tab bottom bar: map, journal, record, saved, profile |
 | Map | react-native-maps | Apple Maps (mutedStandard) on iOS, Google + custom JSON style on Android; landmarks drawn above provider labels |
 | Location | expo-location, foreground only | Background permission is explicitly blocked in the app config |
 | Audio | expo-audio | Record and play; note audio is cached locally before the signed URL expires |
@@ -117,7 +141,7 @@ Demo tour:
 ## Repo map
 
 ```
-app/        Expo Router screens (map, story, record, care, profile, saved)
+app/        Expo Router screens (map, journal, record, saved, profile, story, care)
 src/        theme tokens, map style + landmarks, API client, player, components
 api/        FastAPI app, Alembic migrations, seed data + seed audio
 worker/     arq worker (Parakeet roadmap in worker/README.md)

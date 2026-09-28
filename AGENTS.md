@@ -26,7 +26,7 @@ Designs live in `SpeakEz.pen` (Pencil). Read them through the Pencil MCP: screen
 
 ## Hard rules
 
-1. **Anonymity:** never store raw GPS for a note; store `landmark_id` only. Never return an author ID to clients. Display dates at day level ("this evening"), never minutes.
+1. **Anonymity:** never store raw GPS for a note; store `landmark_id` only. A note is a **public post** (on the map, anonymous) or a **voice journal** entry (`visibility = 'journal'`: author only, no place required, never returned by `/map` or `/unlock`). Drafts are a status, not a visibility. Never return an author ID to clients. Display dates at day level ("this evening"), never minutes.
 2. **Sign-in:** OTP only for `@umn.edu` addresses, checked in the API. Store `email_hmac = HMAC-SHA256(lowercased email, EMAIL_PEPPER)`, never the email itself. OTP codes live in Redis with a 10-minute TTL and 5-attempt limit.
 3. **Unlock is server-checked:** `POST /notes/{id}/unlock` receives the client position, computes distance with PostGIS `ST_DWithin`, and only then returns body, words and a signed audio URL (60 s expiry, from `storage.signed_url`). Positions sent to `/unlock` are never logged or stored.
 4. **Safety before publish:** every transcript passes `api/safety/lexicon.v1.yaml` before a note goes live. Self-harm terms (`unalive`, `sewerslide`, `kms`, …) → status `held` and the app shows the care screen (988, Crisis Text Line, Boynton). Threat patterns → `blocked`. Never show "rejected" alone for self-harm.
@@ -47,10 +47,10 @@ app/                         Expo Router screens
   (auth)/sign-in.tsx         00c Onboarding — Verify: umn.edu email → 6-digit code
   index.tsx                  MapScreen (screen 01)
   story/[id].tsx             screen 03 Expanded Story (+ 04 playback inside)
-  record.tsx                 05 record → 06 choose place → 07 processing → 08 review draft → publish
-  profile.tsx                screen 09 Profile Drawer
-  saved.tsx                  screen 11 Saved Audio
-  my-posts.tsx               screen 12 My Posts
+  record.tsx                 05 record → 06 choose (public post / voice journal / draft) → 07 processing → 08 review → post or save
+  profile.tsx                screen 09 Profile Drawer (recently heard, help, settings, about)
+  saved.tsx                  screen 11 Saved (bottom-bar tab)
+  journal.tsx                screen 12 Journal (bottom-bar tab): public posts, voice journal, drafts
   care.tsx                   screen 10 Help & Resources (crisis resources)
   dev/theme-check.tsx        dev-only: every state in light + dark, raw-hex audit
 src/
@@ -92,7 +92,7 @@ docker-compose.yml
 .env.example
 ```
 
-## Data model (Alembic 0001)
+## Data model (Alembic 0001 + 0002)
 
 ```sql
 create extension if not exists postgis;
@@ -107,8 +107,10 @@ create table notes (id uuid primary key, author_id uuid not null references acco
   landmark_id text not null references landmarks,
   title text, body text, words jsonb, audio_key text, duration_sec int,
   status text not null default 'processing',   -- processing|draft|held|blocked|live
+  -- 0002: visibility text not null default 'public' check (visibility in ('public','journal')),
+  --       landmark_id nullable, but required when visibility = 'public'
   publish_at timestamptz, created_at timestamptz default now(), seeded boolean default false);
-create index notes_live_idx on notes (landmark_id) where status = 'live';
+create index notes_live_idx on notes (landmark_id) where status = 'live' and visibility = 'public';  -- 0002
 create table reactions (note_id uuid references notes on delete cascade,
   account_id uuid references accounts,
   type text check (type in ('heard_you','same','strength','helped')),
@@ -124,7 +126,7 @@ create table moderation_log (id bigserial primary key, note_id uuid references n
 | POST | `/auth/start` | `{email}` → 204. Rejects non-umn.edu with 422. Rate limit 5/hour per email hash + per IP |
 | POST | `/auth/verify` | `{email, code, over18: true}` → `{access, refresh}` |
 | POST | `/auth/refresh` | refresh → new access |
-| GET | `/map?bbox=w,s,e,n` | Live notes in view: `id, title, landmark {id,name,lat,lng}, duration_sec, day_label`. **Cached in Redis 30 s per rounded bbox**; invalidated when a note goes live |
+| GET | `/map?bbox=w,s,e,n` | Live **public** notes in view (never journal entries): `id, title, landmark {id,name,lat,lng}, duration_sec, day_label`. **Cached in Redis 30 s per rounded bbox**; invalidated when a note goes live |
 | POST | `/notes` | `{landmark_id, duration_sec}` multipart audio upload → `{note_id}`; file saved via `storage.save` |
 | POST | `/notes/{id}/submit` | Audio uploaded → enqueue `process_note` |
 | GET | `/notes/{id}/draft` | Author only: status, title, body, flags |
@@ -192,3 +194,9 @@ Where the docs and `SpeakEz.pen` disagree on visuals, the design wins.
 4. **Seed notes — the ~8 titles from the designs** (not 5), spread across East Bank (Walter Library, Northrop Mall, Coffman Union, Pillsbury Hall, The Knoll) and West Bank (Wilson Library, Carlson School, Rarig Center), marked seeded/early tester in `src/seedNotes.ts` and `seed.py`.
 5. **Campus zones — center + radius in `src/zones.ts`** until real polygons exist (see `zone_polygon` TODO in the data model). Zone renders as a soft shape with an EAST / WEST BANK ZONE label; 06 Choose Place suggests the nearest landmark inside the user's zone.
 6. **Attribution — native only.** No drawn attribution; `MapView mapPadding` keeps overlays clear of Apple's legal label and Google's logo.
+
+## Decisions (2026-09-28)
+
+7. **Bottom bar — five labelled tabs:** Map, Journal, Record (accent, center), Saved, Profile. Saved Audio and My Posts move out of the profile drawer; the drawer keeps only account items.
+8. **Three kinds of note, one vocabulary:** Public post / Voice journal / Draft. Names, one-line summaries and icons live in `src/noteKinds.ts`; 06 Choose Place and the Journal tab both read from it. Public posts pick "this spot" or "anywhere on campus" as a sub-choice.
+9. **Voice journal is a visibility, enforced by the API** (Alembic 0002), not just a UI label: journal notes are filtered out of `/map` and refused by `/unlock`.
