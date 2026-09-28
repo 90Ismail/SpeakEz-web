@@ -1,21 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { space, textStyle, useReducedMotion, useTheme } from "../theme";
 import { Waveform } from "./Waveform";
 
 const STEPS = [
-  "Voice anonymized",
-  "Transcribed",
-  "Removing names and identifying details",
-  "Suggesting a title",
+  "Uploading your voice note",
+  "Sending it to the GPU worker",
+  "Getting your draft ready",
 ];
 
-const STEP_MS = 620;
+export type RecordProcessingPhase = "uploading" | "queued" | "error";
 
-type StepState = "done" | "active" | "pending";
+type StepState = "done" | "active" | "pending" | "error";
 
 type RecordProcessingStageProps = {
+  phase: RecordProcessingPhase;
+  errorMessage?: string;
+  onRetry: () => void;
   onDone: () => void;
   topInset: number;
 };
@@ -85,6 +87,11 @@ function StepRow({ label, state, spin, pulse }: StepRowProps) {
         {state === "pending" ? (
           <View style={[styles.pendingRing, { borderColor: theme.controlLine }]} />
         ) : null}
+        {state === "error" ? (
+          <View style={[styles.errorCircle, { backgroundColor: theme.dangerSoft }]}>
+            <Ionicons name="alert" size={13} color={theme.danger} />
+          </View>
+        ) : null}
       </View>
       <Text style={[styles.stepLabel, { color: state === "pending" ? theme.ink3 : theme.ink }]}>
         {label}
@@ -93,26 +100,24 @@ function StepRow({ label, state, spin, pulse }: StepRowProps) {
   );
 }
 
-export function RecordProcessingStage({ onDone, topInset }: RecordProcessingStageProps) {
+export function RecordProcessingStage({
+  phase,
+  errorMessage,
+  onRetry,
+  onDone,
+  topInset,
+}: RecordProcessingStageProps) {
   const theme = useTheme();
   const reduced = useReducedMotion();
-  const [activeStep, setActiveStep] = useState(0);
   const spin = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setActiveStep((step) => (step >= STEPS.length ? step : step + 1));
-    }, STEP_MS);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    if (activeStep < STEPS.length) return undefined;
+    if (phase !== "queued") return undefined;
     const id = setTimeout(onDone, 350);
     return () => clearTimeout(id);
-  }, [activeStep, onDone]);
+  }, [onDone, phase]);
 
   useEffect(() => {
     if (reduced) {
@@ -168,6 +173,7 @@ export function RecordProcessingStage({ onDone, topInset }: RecordProcessingStag
   }, [reduced, spin, pulse, shimmer]);
 
   const shimmerOpacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] });
+  const activeStep = phase === "queued" ? STEPS.length : 0;
 
   return (
     <View style={[styles.root, { paddingTop: topInset + 56 }]}>
@@ -191,13 +197,42 @@ export function RecordProcessingStage({ onDone, topInset }: RecordProcessingStag
         <Text style={[styles.sub, { color: theme.ink2 }]}>About twenty seconds.</Text>
       </View>
 
-      <View accessibilityLabel="Processing, please wait" style={[styles.steps, { borderTopColor: theme.line }]}>
+      <View
+        accessibilityLabel={phase === "error" ? "Upload failed" : "Processing, please wait"}
+        style={[styles.steps, { borderTopColor: theme.line }]}
+      >
         {STEPS.map((label, index) => {
           const state: StepState =
-            index < activeStep ? "done" : index === activeStep ? "active" : "pending";
+            phase === "error" && index === 0
+              ? "error"
+              : index < activeStep
+                ? "done"
+                : index === activeStep
+                  ? "active"
+                  : "pending";
           return <StepRow key={label} label={label} state={state} spin={spin} pulse={pulse} />;
         })}
       </View>
+
+      {phase === "error" ? (
+        <View style={styles.errorBlock}>
+          <Text style={[styles.errorText, { color: theme.danger }]}>
+            {errorMessage ?? "We couldn't send your voice note."}
+          </Text>
+          <Pressable
+            onPress={onRetry}
+            accessibilityRole="button"
+            accessibilityLabel="Retry voice note upload"
+            style={({ pressed }) => [
+              styles.retry,
+              { borderColor: theme.controlLine, opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Ionicons name="refresh" size={15} color={theme.ink} />
+            <Text style={[styles.retryLabel, { color: theme.ink }]}>Try again</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -275,8 +310,35 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     borderWidth: 1,
   },
+  errorCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   stepLabel: {
     flex: 1,
     ...textStyle.body,
+  },
+  errorBlock: {
+    gap: space.md,
+    paddingTop: space.sm,
+  },
+  errorText: {
+    ...textStyle.body,
+  },
+  retry: {
+    alignSelf: "flex-start",
+    minHeight: 44,
+    paddingHorizontal: space.md,
+    borderWidth: 1,
+    borderRadius: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+  },
+  retryLabel: {
+    ...textStyle.supportStrong,
   },
 });

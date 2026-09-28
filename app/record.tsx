@@ -21,6 +21,7 @@ import {
 } from "../src/components/RecordReviewStage";
 import { TopBar } from "../src/components/TopBar";
 import { IconButton } from "../src/components/IconButton";
+import { createNote, submitNote } from "../src/api/records";
 import { CAMPUS_LANDMARKS } from "../src/campusLandmarks";
 import { CAMPUS_CENTER } from "../src/config";
 import { useDemoState } from "../src/demo";
@@ -28,6 +29,7 @@ import { haversineMeters, type LatLng } from "../src/geo";
 import { SEED_NOTES } from "../src/seedNotes";
 import { useTheme } from "../src/theme";
 import { landmarkInZone, zoneAt, type CampusZone } from "../src/zones";
+import type { RecordProcessingPhase } from "../src/components/RecordProcessingStage";
 
 type Stage = "record" | "place" | "processing" | "review";
 
@@ -120,6 +122,8 @@ export default function RecordScreen() {
   const [title, setTitle] = useState(mockTitle);
   const [excluded, setExcluded] = useState<Set<string>>(() => new Set());
   const [mockPlaying, setMockPlaying] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<RecordProcessingPhase>("uploading");
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const recorderFailedRef = useRef(false);
   const permissionGrantedRef = useRef(false);
@@ -130,6 +134,8 @@ export default function RecordScreen() {
   const justArmedRef = useRef(false);
   const swallowPressRef = useRef(false);
   const pressStartRef = useRef(0);
+  const noteIdRef = useRef<string | null>(null);
+  const uploadInFlightRef = useRef(false);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY, (status) => {
     if (status.hasError) recorderFailedRef.current = true;
@@ -222,6 +228,9 @@ export default function RecordScreen() {
   const startRecording = useCallback(async () => {
     if (isRecordingRef.current) return;
     setRecordedUri(null);
+    noteIdRef.current = null;
+    setUploadPhase("uploading");
+    setUploadError(null);
     updateElapsed(0);
     startedAtRef.current = Date.now();
     try {
@@ -347,6 +356,35 @@ export default function RecordScreen() {
     [position, spotLandmark, zone],
   );
 
+  const submitRecording = useCallback(async () => {
+    if (!recordedUri || uploadInFlightRef.current) return;
+    uploadInFlightRef.current = true;
+    setUploadPhase("uploading");
+    setUploadError(null);
+    setStage("processing");
+
+    try {
+      const landmark = choice === "campus" ? campusLandmark : spotLandmark;
+      const noteId =
+        noteIdRef.current ??
+        (
+          await createNote({
+            audioUri: recordedUri,
+            landmarkId: landmark.id,
+            durationSec: elapsedRef.current,
+          })
+        ).noteId;
+      noteIdRef.current = noteId;
+      await submitNote(noteId);
+      setUploadPhase("queued");
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "We couldn't send your voice note.");
+      setUploadPhase("error");
+    } finally {
+      uploadInFlightRef.current = false;
+    }
+  }, [campusLandmark, choice, recordedUri, spotLandmark]);
+
   const primaryMode = isRecording ? "stop" : hasRecording ? "continue" : "record";
 
   return (
@@ -403,14 +441,20 @@ export default function RecordScreen() {
           choice={choice}
           onChangeChoice={setChoice}
           onBack={() => setStage("record")}
-          onContinue={() => setStage("processing")}
+          onContinue={() => void submitRecording()}
           topInset={insets.top}
           bottomInset={insets.bottom}
         />
       ) : null}
 
       {stage === "processing" ? (
-        <RecordProcessingStage onDone={() => setStage("review")} topInset={insets.top} />
+        <RecordProcessingStage
+          phase={uploadPhase}
+          errorMessage={uploadError ?? undefined}
+          onRetry={() => void submitRecording()}
+          onDone={() => setStage("review")}
+          topInset={insets.top}
+        />
       ) : null}
 
       {stage === "review" ? (
