@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
-import { fonts, space, type, useTheme } from "../theme";
+import { space, textStyle, useTheme } from "../theme";
 import { Waveform } from "./Waveform";
 
 const STEPS = [
@@ -69,32 +69,33 @@ export function RecordProcessingStage({ onDone, topInset }: RecordProcessingStag
         <Text style={[styles.sub, { color: theme.ink2 }]}>About twenty seconds.</Text>
       </View>
 
-      <View accessibilityLabel="Processing, please wait">
+      <View accessibilityLabel="Processing, please wait" style={[styles.steps, { borderTopColor: theme.line }]}>
         {STEPS.map((label, index) => {
           const done = index < activeStep;
           const active = index === activeStep;
           return (
-            <View key={label} style={styles.step}>
+            <View key={label} style={[styles.step, { borderBottomColor: theme.line }]}>
               <View style={styles.state}>
                 {done ? (
-                  <View style={[styles.doneCircle, { backgroundColor: theme.ink }]}>
-                    <Ionicons name="checkmark" size={12} color={theme.surface} />
+                  <View style={[styles.doneDisc, { backgroundColor: theme.accent }]}>
+                    <Ionicons name="checkmark" size={13} color={theme.onAccent} />
                   </View>
                 ) : null}
                 {active ? (
                   <Animated.View
                     style={[
-                      styles.spinner,
+                      styles.activeRing,
                       {
                         borderColor: theme.line,
                         borderTopColor: theme.accent,
+                        borderRightColor: theme.accent,
                         transform: [{ rotate }],
                       },
                     ]}
                   />
                 ) : null}
                 {!done && !active ? (
-                  <View style={[styles.pendingCircle, { borderColor: theme.line }]} />
+                  <View style={[styles.pendingRing, { borderColor: theme.controlLine }]} />
                 ) : null}
               </View>
               <Text style={[styles.stepLabel, { color: done || active ? theme.ink : theme.ink3 }]}>
@@ -134,18 +135,20 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   title: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.display,
-    lineHeight: type.display * 1.1,
-    letterSpacing: -0.8 },
+    ...textStyle.displaySans,
+  },
   sub: {
-    fontFamily: fonts.sans,
-    fontSize: type.body },
+    ...textStyle.body,
+  },
+  steps: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   step: {
     height: 52,
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   state: {
     width: 22,
@@ -153,20 +156,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  doneCircle: {
+  doneDisc: {
     width: 22,
     height: 22,
     borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
   },
-  spinner: {
+  activeRing: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    borderWidth: 2.5,
+    borderWidth: 1.5,
   },
-  pendingCircle: {
+  pendingRing: {
     width: 22,
     height: 22,
     borderRadius: 11,
@@ -174,6 +177,6 @@ const styles = StyleSheet.create({
   },
   stepLabel: {
     flex: 1,
-    fontFamily: fonts.sans,
-    fontSize: type.body },
+    ...textStyle.body,
+  },
 });

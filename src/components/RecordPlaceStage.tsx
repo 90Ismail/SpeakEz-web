@@ -5,7 +5,7 @@ import MapView, { Circle, Marker } from "react-native-maps";
 import type { CampusLandmark } from "../campusLandmarks";
 import { UNLOCK_RADIUS_M, USE_GOOGLE_ON_IOS } from "../config";
 import { googleMapStyle } from "../mapStyle";
-import { fonts, radius, space, type, useTheme, useThemeMode } from "../theme";
+import { pressed as pressedOpacity, radius, space, textStyle, useTheme, useThemeMode } from "../theme";
 import type { CampusZone } from "../zones";
 import { IconButton } from "./IconButton";
 
@@ -57,30 +57,19 @@ function PlaceOption({ title, description, icon, selected, onPress }: PlaceOptio
         {
           borderWidth: selected ? 1.5 : 1,
           borderColor: selected ? theme.ink : theme.controlLine,
-          backgroundColor: selected ? theme.bg : theme.surfaceClear,
-          opacity: pressed ? 0.85 : 1,
+          backgroundColor: pressed ? theme.tint : selected ? theme.bg : theme.surfaceClear,
         },
       ]}
     >
-      <View
-        style={[
-          styles.iconBox,
-          { backgroundColor: selected ? theme.accentSoft : theme.tint },
-        ]}
-      >
-        <Ionicons name={icon} size={16} color={selected ? theme.accent : theme.ink2} />
+      <View style={[styles.iconBox, { backgroundColor: selected ? theme.accentSoft : theme.tint }]}>
+        <Ionicons name={icon} size={18} color={selected ? theme.accentText : theme.ink} />
       </View>
       <View style={styles.optionText}>
         <Text style={[styles.optionTitle, { color: theme.ink }]}>{title}</Text>
         <Text style={[styles.optionDesc, { color: theme.ink2 }]}>{description}</Text>
       </View>
-      <View
-        style={[
-          styles.radio,
-          { borderColor: selected ? theme.ink : theme.controlLine },
-        ]}
-      >
-        {selected ? <View style={[styles.radioDot, { backgroundColor: theme.ink }]} /> : null}
+      <View style={[styles.radio, { borderColor: selected ? theme.accent : theme.controlLine }]}>
+        {selected ? <View style={[styles.radioDot, { backgroundColor: theme.accent }]} /> : null}
       </View>
     </Pressable>
   );
@@ -162,7 +151,7 @@ export function RecordPlaceStage({
             anchor={{ x: 0.5, y: 0.5 }}
             tracksViewChanges={Platform.OS === "android"}
           >
-            <Text style={[styles.zoneLabel, { color: theme.mapLabel }]}>{zone.label}</Text>
+            <Text style={[styles.zoneLabel, { color: theme.ink2 }]}>{zone.label}</Text>
           </Marker>
         ) : null}
         <Marker
@@ -212,14 +201,14 @@ export function RecordPlaceStage({
         <PlaceOption
           title="This spot"
           description={`Heard within ${UNLOCK_RADIUS_M} m of ${spotLandmark.name}.`}
-          icon="location"
+          icon="location-outline"
           selected={choice === "spot"}
           onPress={() => onChangeChoice("spot")}
         />
         <PlaceOption
           title="Campus"
           description={`Heard anywhere on ${bankName}.`}
-          icon="map"
+          icon="map-outline"
           selected={choice === "campus"}
           onPress={() => onChangeChoice("campus")}
         />
@@ -230,7 +219,7 @@ export function RecordPlaceStage({
           accessibilityLabel={`Continue with ${chosen.name}`}
           style={({ pressed }) => [
             styles.continue,
-            { backgroundColor: theme.ink, opacity: pressed ? 0.85 : 1 },
+            { backgroundColor: theme.ink, opacity: pressed ? pressedOpacity.soft : 1 },
           ]}
         >
           <Text style={[styles.continueLabel, { color: theme.surface }]}>Continue</Text>
@@ -260,9 +249,8 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   zoneLabel: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.meta,
-    letterSpacing: 1.4 },
+    ...textStyle.caps,
+  },
   pin: {
     flexDirection: "row",
     alignItems: "center",
@@ -285,8 +273,8 @@ const styles = StyleSheet.create({
   },
   pinLabel: {
     maxWidth: 190,
-    fontFamily: fonts.sansBold,
-    fontSize: 11.5 },
+    ...textStyle.supportStrong,
+  },
   sheet: {
     flex: 1,
     gap: 12,
@@ -301,36 +289,34 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   heading: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.title,
-    lineHeight: type.title * 1.1,
-    letterSpacing: -0.7,
-    marginBottom: space.xs },
+    ...textStyle.titleSans,
+    marginBottom: space.xs,
+  },
   option: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
     padding: 16,
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
   },
   iconBox: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
   },
   optionText: {
     flex: 1,
-    gap: space.xs,
+    gap: 2,
   },
   optionTitle: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.body },
+    ...textStyle.bodyStrong,
+  },
   optionDesc: {
-    fontFamily: fonts.sans,
-    fontSize: type.support,
-    lineHeight: type.support * 1.45 },
+    ...textStyle.support,
+    lineHeight: 19,
+  },
   radio: {
     width: 20,
     height: 20,
@@ -349,11 +335,11 @@ const styles = StyleSheet.create({
   },
   continue: {
     height: 52,
-    borderRadius: 26,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },
   continueLabel: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.body },
+    ...textStyle.bodyStrong,
+  },
 });

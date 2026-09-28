@@ -2,12 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { landmarkById } from "./campusLandmarks";
-import { Caps } from "./components/Caps";
 import { Waveform } from "./components/Waveform";
 import { UNLOCK_RADIUS_M } from "./config";
 import { formatDistance } from "./geo";
 import type { SeedNote } from "./seedNotes";
-import { fonts, lineHeight, motion, radius, type, useTheme } from "./theme";
+import { motion, pressed as pressedOpacity, radius, shadow, textStyle, useTheme } from "./theme";
 
 const CARD_HEIGHT = 460;
 const FADE_OPACITIES = [0.2, 0.45, 0.7, 0.9];
@@ -98,9 +97,9 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
 
         <View style={styles.locationRow}>
           <Ionicons name="location" size={12} color={theme.accentText} />
-          <Caps tone="accent" size={type.meta}>
+          <Text numberOfLines={1} style={[styles.location, { color: theme.accentText }]}>
             {(landmark?.name ?? "University of Minnesota").toUpperCase()}
-          </Caps>
+          </Text>
           {distance !== null ? (
             <Text style={[styles.distance, { color: theme.ink3 }]}>
               {`·  ${formatDistance(distance)} from you`}
@@ -123,7 +122,7 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
                 accessibilityLabel={`Play ${rendered.title}`}
                 style={({ pressed }) => [
                   styles.playButton,
-                  { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 },
+                  { backgroundColor: theme.accent, opacity: pressed ? pressedOpacity.dim : 1 },
                 ]}
               >
                 <Ionicons name="play" size={17} color={theme.onAccent} />
@@ -172,10 +171,7 @@ const styles = StyleSheet.create({
     paddingRight: 24,
     paddingBottom: 34,
     paddingLeft: 24,
-    shadowOpacity: 1,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 12,
+    ...shadow.sheet,
   },
   content: {
     gap: 6,
@@ -195,15 +191,19 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingBottom: 2,
   },
+  location: {
+    ...textStyle.caps,
+    flexShrink: 1,
+  },
   distance: {
-    fontFamily: fonts.sans,
-    fontSize: type.meta },
+    ...textStyle.meta,
+  },
   title: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.title },
+    ...textStyle.titleSerif,
+  },
   meta: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
   player: {
     flexDirection: "row",
     alignItems: "center",
@@ -221,15 +221,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   duration: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
   excerpt: {
     paddingTop: 14,
   },
   excerptText: {
-    fontFamily: fonts.serif,
-    fontSize: type.reading,
-    lineHeight: lineHeight.reading },
+    ...textStyle.excerpt,
+  },
   excerptFade: {
     position: "absolute",
     left: 0,
@@ -243,6 +242,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   lockedText: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
 });

@@ -5,7 +5,7 @@ import { landmarkById } from "./campusLandmarks";
 import { CHIP_RADIUS_M, UNLOCK_RADIUS_M } from "./config";
 import { formatDistance, formatDistanceUpper, type LatLng } from "./geo";
 import type { SeedNote } from "./seedNotes";
-import { fonts, radius, type, useTheme } from "./theme";
+import { fonts, radius, shadow, textStyle, type, useTheme } from "./theme";
 
 export type PinState = "dot" | "label" | "unlocked";
 
@@ -30,6 +30,8 @@ const UNLOCKED_GAP = 7;
 const UNLOCKED_CHIP_MAX = 290;
 const UNLOCKED_WIDTH = UNLOCKED_LEFT_PAD + UNLOCKED_DOT_BOX + UNLOCKED_GAP + UNLOCKED_CHIP_MAX;
 const UNLOCKED_DOT_CENTER = UNLOCKED_LEFT_PAD + UNLOCKED_DOT_BOX / 2;
+/** The unlocked chip stacks a caption row over a two-line title, so its shell is taller. The dot stays vertically centered. */
+const UNLOCKED_HEIGHT = 84;
 
 export type Cluster = {
   id: string;
@@ -160,6 +162,10 @@ export function PinDot({ note, distance, selected, onPress }: NotePinProps) {
   );
 }
 
+/**
+ * Pin / Label chip: glassStrong fill, glassStroke 1px, radius 6, voice icon ink3
+ * 13, title sans 13 ink2. Selected flips to an ink chip with surface text.
+ */
 export function PinLabel({ note, distance, selected, onPress }: NotePinProps) {
   const theme = useTheme();
   return (
@@ -176,16 +182,11 @@ export function PinLabel({ note, distance, selected, onPress }: NotePinProps) {
         <View
           style={[
             styles.chip,
+            selected ? styles.labelChipSelected : styles.labelChip,
             {
               maxWidth: LABEL_CHIP_MAX,
               backgroundColor: selected ? theme.ink : theme.glassStrong,
               borderColor: selected ? theme.ink : theme.glassStroke,
-              borderRadius: selected ? 7.5 : radius.xs,
-              paddingTop: selected ? 7.5 : 6,
-              paddingRight: selected ? 12.5 : 10,
-              paddingBottom: selected ? 7.5 : 6,
-              paddingLeft: selected ? 10 : 8,
-              gap: selected ? 7.5 : 6,
             },
           ]}
         >
@@ -193,12 +194,8 @@ export function PinLabel({ note, distance, selected, onPress }: NotePinProps) {
           <Text
             numberOfLines={1}
             style={[
-              styles.chipTitle,
-              {
-                color: selected ? theme.surface : theme.ink2,
-                fontSize: selected ? type.body : type.support,
-                fontFamily: selected ? fonts.sansBold : fonts.sansSemibold,
-              },
+              selected ? styles.labelTitleSelected : styles.labelTitle,
+              { color: selected ? theme.surface : theme.ink2 },
             ]}
           >
             {note.title}
@@ -209,73 +206,68 @@ export function PinLabel({ note, distance, selected, onPress }: NotePinProps) {
   );
 }
 
+/**
+ * Pin / Unlocked chip: accentSoft fill, 1.5px accent stroke, radius 6, control
+ * shadow, a caption row ("UNLOCKED · 90 M" with a headphones glyph) over a bold
+ * title. Selected collapses to the same ink chip the label pin uses.
+ */
 export function PinUnlocked({ note, distance, selected, onPress }: NotePinProps) {
   const theme = useTheme();
   const distanceLabel = distance === null ? "UNLOCKED" : `UNLOCKED · ${formatDistanceUpper(distance)}`;
   return (
-    <PinShell width={UNLOCKED_WIDTH} dotCenterX={UNLOCKED_DOT_CENTER} selected={selected}>
+    <PinShell width={UNLOCKED_WIDTH} height={UNLOCKED_HEIGHT} dotCenterX={UNLOCKED_DOT_CENTER} selected={selected}>
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={pinAccessibilityLabel(note, distance)}
         accessibilityHint="Unlocked · tap to open"
-        style={[styles.pinRow, { height: PIN_HEIGHT, paddingLeft: UNLOCKED_LEFT_PAD, gap: UNLOCKED_GAP }]}
+        style={[styles.pinRow, { height: UNLOCKED_HEIGHT, paddingLeft: UNLOCKED_LEFT_PAD, gap: UNLOCKED_GAP }]}
       >
         <View style={[styles.dotBox, { width: UNLOCKED_DOT_BOX }]}>
           <Dot size={selected ? 15 : 14} ring={2.5} color={theme.accent} ringColor={theme.ring} />
         </View>
-        <View
-          style={[
-            styles.chip,
-            {
-              maxWidth: UNLOCKED_CHIP_MAX,
-              backgroundColor: selected ? theme.ink : theme.accentSoft,
-              borderColor: selected ? theme.ink : theme.accent,
-              borderRadius: selected ? 7.5 : radius.xs,
-              borderWidth: selected ? 1 : 1.5,
-              paddingTop: selected ? 7.5 : 8,
-              paddingRight: selected ? 12.5 : 12,
-              paddingBottom: selected ? 7.5 : 8,
-              paddingLeft: selected ? 10 : 10,
-              gap: 7,
-              shadowColor: theme.glassShadow,
-            },
-          ]}
-        >
-          <Ionicons
-            name="lock-open-outline"
-            size={selected ? 16 : 14}
-            color={selected ? theme.accent : theme.accentText}
-          />
-          <Text
-            numberOfLines={1}
+        {selected ? (
+          <View
             style={[
-              styles.unlockedCaption,
-              { color: selected ? theme.accent : theme.accentText },
+              styles.chip,
+              styles.labelChipSelected,
+              { maxWidth: UNLOCKED_CHIP_MAX, backgroundColor: theme.ink, borderColor: theme.ink },
             ]}
           >
-            {distanceLabel}
-          </Text>
-          <Text
-            numberOfLines={1}
+            <Ionicons name="headset-outline" size={16} color={theme.accent} />
+            <Text numberOfLines={1} style={[styles.labelTitleSelected, { color: theme.surface }]}>
+              {note.title}
+            </Text>
+          </View>
+        ) : (
+          <View
             style={[
-              styles.chipTitle,
+              styles.unlockedChip,
               {
-                flexShrink: 1,
-                color: selected ? theme.surface : theme.ink,
-                fontSize: selected ? type.body : type.support,
-                fontFamily: fonts.sansBold,
+                maxWidth: UNLOCKED_CHIP_MAX,
+                backgroundColor: theme.accentSoft,
+                borderColor: theme.accent,
+                shadowColor: theme.glassShadow,
               },
             ]}
           >
-            {note.title}
-          </Text>
-        </View>
+            <View style={styles.unlockedCaptionRow}>
+              <Ionicons name="headset-outline" size={14} color={theme.accentText} />
+              <Text numberOfLines={1} style={[styles.unlockedCaption, { color: theme.accentText }]}>
+                {distanceLabel}
+              </Text>
+            </View>
+            <Text numberOfLines={2} style={[styles.unlockedTitle, { color: theme.ink }]}>
+              {note.title}
+            </Text>
+          </View>
+        )}
       </Pressable>
     </PinShell>
   );
 }
 
+/** Cluster pill: surface fill, 1px line, control shadow. */
 export function PinCluster({ label }: { label: string }) {
   const theme = useTheme();
   const dotColors = [theme.accent, theme.accent, theme.accentLine];
@@ -283,7 +275,7 @@ export function PinCluster({ label }: { label: string }) {
     <View
       style={[
         styles.cluster,
-        { backgroundColor: theme.glassStrong, borderColor: theme.glassStroke, shadowColor: theme.glassShadow },
+        { backgroundColor: theme.surface, borderColor: theme.line, shadowColor: theme.glassShadow },
       ]}
     >
       <View style={styles.clusterDots}>
@@ -328,13 +320,58 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
   },
-  chipTitle: {
-    fontFamily: fonts.sans,
-    flexShrink: 1 },
-  unlockedCaption: {
+  labelChip: {
+    borderRadius: radius.xs,
+    paddingTop: 6,
+    paddingRight: 10,
+    paddingBottom: 6,
+    paddingLeft: 8,
+    gap: 6,
+  },
+  labelChipSelected: {
+    borderRadius: 7.5,
+    paddingTop: 7.5,
+    paddingRight: 12.5,
+    paddingBottom: 7.5,
+    paddingLeft: 10,
+    gap: 7.5,
+  },
+  labelTitle: {
+    fontFamily: fonts.sansMedium,
+    fontSize: type.support,
+    lineHeight: 16,
+    flexShrink: 1,
+  },
+  labelTitleSelected: {
     fontFamily: fonts.sansBold,
-    fontSize: type.meta,
-    letterSpacing: 1 },
+    fontSize: type.body,
+    lineHeight: 18,
+    flexShrink: 1,
+  },
+  unlockedChip: {
+    borderWidth: 1.5,
+    borderRadius: radius.xs,
+    paddingTop: 9,
+    paddingRight: 13,
+    paddingBottom: 10,
+    paddingLeft: 11,
+    gap: 3,
+    flexShrink: 1,
+    ...shadow.control,
+  },
+  unlockedCaptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  unlockedCaption: {
+    ...textStyle.caps,
+    lineHeight: 15,
+  },
+  unlockedTitle: {
+    ...textStyle.bodyStrong,
+    lineHeight: 20,
+  },
   cluster: {
     flexDirection: "row",
     alignItems: "center",
@@ -344,19 +381,17 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingLeft: 9,
     borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    shadowOpacity: 1,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
+    borderWidth: 1,
+    ...shadow.control,
   },
   clusterDots: {
     flexDirection: "row",
     alignItems: "center",
   },
   clusterLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.meta },
+    ...textStyle.support,
+    lineHeight: 16,
+  },
   youAreHere: {
     width: 40,
     height: 40,

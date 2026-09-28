@@ -19,7 +19,7 @@ import {
   type ReviewParagraph,
   type ReviewSentence,
 } from "../src/components/RecordReviewStage";
-import { RecordTopBar } from "../src/components/RecordTopBar";
+import { TopBar } from "../src/components/TopBar";
 import { IconButton } from "../src/components/IconButton";
 import { CAMPUS_LANDMARKS } from "../src/campusLandmarks";
 import { CAMPUS_CENTER } from "../src/config";
@@ -332,11 +332,9 @@ export default function RecordScreen() {
     <View style={[styles.root, { backgroundColor: theme.bg, paddingTop: insets.top }]}>
       {stage === "record" ? (
         <>
-          <RecordTopBar
+          <TopBar
             title="New voice note"
-            leadingIcon="close"
-            leadingLabel="Close without posting"
-            onLeadingPress={() => router.back()}
+            leading={{ icon: "close", label: "Close without posting", onPress: () => router.back() }}
             trailing={
               <IconButton
                 icon="information-circle-outline"

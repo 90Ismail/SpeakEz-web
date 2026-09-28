@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
-import { fonts, radius, space, type, useTheme } from "../theme";
+import { radius, space, textStyle, useTheme } from "../theme";
 import { Waveform } from "./Waveform";
 import { RecordControls, type RecordPrimaryMode } from "./RecordControls";
 
@@ -58,7 +58,7 @@ export function RecordCaptureStage({
   return (
     <View style={styles.root}>
       <View style={[styles.chip, { borderColor: theme.controlLine }]}>
-        <Ionicons name="location" size={13} color={theme.accent} />
+        <Ionicons name="location-outline" size={14} color={theme.ink2} />
         <Text style={[styles.chipLabel, { color: theme.ink2 }]} numberOfLines={1}>
           {chipLabel}
         </Text>
@@ -101,22 +101,20 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
+    height: 32,
     gap: 6,
-    paddingVertical: 6,
-    paddingLeft: 9,
-    paddingRight: 11,
-    borderRadius: 16,
+    paddingLeft: 10,
+    paddingRight: 12,
+    borderRadius: radius.pill,
     borderWidth: 1,
   },
   chipLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
   prompt: {
     paddingTop: space.lg,
-    fontFamily: fonts.sansBold,
-    fontSize: type.display,
-    lineHeight: type.display * 1.1,
-    letterSpacing: -0.8 },
+    ...textStyle.displaySerif,
+  },
   live: {
     flex: 1,
     justifyContent: "center",
@@ -130,10 +128,10 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   elapsed: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.hero,
-    fontVariant: ["tabular-nums"] },
+    ...textStyle.hero,
+    fontVariant: ["tabular-nums"],
+  },
   status: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
 });

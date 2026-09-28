@@ -4,23 +4,22 @@ import { useRouter } from "expo-router";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Circle } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Caps } from "../../src/components/Caps";
 import { OnboardingButton, OnboardingTextButton } from "../../src/components/OnboardingButton";
 import { OnboardingDots } from "../../src/components/OnboardingDots";
 import { OnboardingMap } from "../../src/components/OnboardingMap";
 import { setLocationChoice, type LocationChoice } from "../../src/components/OnboardingPrefs";
-import { OnboardingTopBar } from "../../src/components/OnboardingTopBar";
+import { TopBar } from "../../src/components/TopBar";
 import { CAMPUS_CENTER, UNLOCK_RADIUS_M } from "../../src/config";
-import { fonts, radius, space, type, useTheme } from "../../src/theme";
+import { fonts, radius, space, textStyle, useTheme } from "../../src/theme";
 
 const MAP_WINDOW_HEIGHT = 230;
 const RADIUS_DIAMETER_PT = 170;
 const METERS_PER_LAT_DEGREE = 111320;
 
 const ASSURANCES: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
-  { icon: "eye-off", label: "Only while you're using the app." },
-  { icon: "shield", label: "Never stored or shared." },
-  { icon: "locate", label: "Approximate location still works." },
+  { icon: "eye-off-outline", label: "Only while you're using the app." },
+  { icon: "shield-outline", label: "Never stored or shared." },
+  { icon: "locate-outline", label: "Approximate location still works." },
 ];
 
 export default function OnboardingLocationScreen() {
@@ -29,7 +28,7 @@ export default function OnboardingLocationScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
 
-  const mapWindowWidth = width - 48;
+  const mapWindowWidth = width - space.gutter * 2;
   const metersPerPoint = UNLOCK_RADIUS_M / (RADIUS_DIAMETER_PT / 2);
   const mapWindowRegion = {
     ...CAMPUS_CENTER,
@@ -62,7 +61,10 @@ export default function OnboardingLocationScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg, paddingTop: insets.top }]}>
-      <OnboardingTopBar onBack={() => router.back()} right={<OnboardingDots active={1} />} />
+      <TopBar
+        leading={{ label: "Go back", onPress: () => router.back() }}
+        trailing={<OnboardingDots active={1} />}
+      />
       <View style={[styles.mapWindow, { backgroundColor: theme.mapGround, borderColor: theme.line }]}>
         <OnboardingMap initialRegion={mapWindowRegion} style={StyleSheet.absoluteFill}>
           <Circle
@@ -82,7 +84,7 @@ export default function OnboardingLocationScreen() {
           pointerEvents="none"
           style={[styles.lockedChip, { backgroundColor: theme.glassStrong, borderColor: theme.glassStroke }]}
         >
-          <Ionicons name="lock-closed" size={11} color={theme.ink2} />
+          <Ionicons name="lock-closed-outline" size={11} color={theme.ink2} />
           <Text style={[styles.chipText, { color: theme.ink2 }]}>320 m away</Text>
         </View>
         <View pointerEvents="none" style={styles.radiusLabelWrap}>
@@ -92,14 +94,16 @@ export default function OnboardingLocationScreen() {
         </View>
       </View>
       <View style={[styles.content, { paddingBottom: insets.bottom + space.md }]}>
-        <Text style={[styles.heading, { color: theme.ink }]}>Notes unlock when you&apos;re close.</Text>
+        <Text accessibilityRole="header" style={[styles.heading, { color: theme.ink }]}>
+          Notes unlock when you&apos;re close.
+        </Text>
         <Text style={[styles.body, { color: theme.ink2 }]}>
           We use your location while the app is open to show which notes you can hear.
         </Text>
         <View style={styles.assurances}>
           {ASSURANCES.map((assurance) => (
             <View key={assurance.icon} style={styles.assurance}>
-              <Ionicons name={assurance.icon} size={18} color={theme.accentText} />
+              <Ionicons name={assurance.icon} size={18} color={theme.ink2} />
               <Text style={[styles.assuranceLabel, { color: theme.ink }]}>{assurance.label}</Text>
             </View>
           ))}
@@ -107,7 +111,7 @@ export default function OnboardingLocationScreen() {
         <View style={styles.footer}>
           <OnboardingButton
             label="Allow location"
-            icon="location"
+            icon="location-outline"
             onPress={handleAllow}
             accessibilityHint="Opens the system location prompt, then continues to sign in"
           />
@@ -127,7 +131,7 @@ const styles = StyleSheet.create({
   },
   mapWindow: {
     marginTop: space.sm,
-    marginHorizontal: 24,
+    marginHorizontal: space.gutter,
     height: MAP_WINDOW_HEIGHT,
     minHeight: 170,
     flexShrink: 1,
@@ -179,27 +183,25 @@ const styles = StyleSheet.create({
   radiusLabel: {
     height: 19,
     justifyContent: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: space.sm,
     borderRadius: 9,
   },
   chipText: {
+    ...textStyle.meta,
     fontFamily: fonts.sansBold,
-    fontSize: type.meta },
+  },
   content: {
     flexGrow: 1,
     paddingTop: 28,
-    paddingHorizontal: 24,
+    paddingHorizontal: space.gutter,
     gap: 14,
   },
   heading: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.display,
-    lineHeight: 35,
-    letterSpacing: -1 },
+    ...textStyle.displaySans,
+  },
   body: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    lineHeight: 22.5 },
+    ...textStyle.body,
+  },
   assurances: {
     gap: 12,
   },
@@ -209,9 +211,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   assuranceLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    lineHeight: 21 },
+    ...textStyle.body,
+  },
   footer: {
     marginTop: "auto",
     width: "100%",
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   systemNote: {
-    fontFamily: fonts.sans,
-    fontSize: type.support,
-    textAlign: "center" },
+    ...textStyle.support,
+    textAlign: "center",
+  },
 });

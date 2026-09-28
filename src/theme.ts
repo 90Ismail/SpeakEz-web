@@ -12,6 +12,7 @@ export const fonts = {
   serifMedium: "Newsreader_500Medium",
   serifSemibold: "Newsreader_600SemiBold",
   serifBold: "Newsreader_700Bold",
+  serifItalic: "Newsreader_500Medium_Italic",
 } as const;
 
 export const fontWeight = {
@@ -33,7 +34,52 @@ export const type = {
 } as const;
 
 export const lineHeight = {
-  reading: 27,
+  reading: 30,
+  excerpt: 27,
+} as const;
+
+/**
+ * Type roles from the Pencil design. The rule of the system: the app speaks in
+ * Karla (sans), the students speak in Newsreader (serif). Headlines that carry a
+ * student's words (note titles, prompts, editorial headlines) are serif 500;
+ * utility headings (screen titles, settings, onboarding steps) stay sans bold.
+ */
+export const textStyle = {
+  // Serif voice (content)
+  displaySerif: { fontFamily: fonts.serifMedium, fontSize: type.display, lineHeight: 36, letterSpacing: -0.6 },
+  titleSerif: { fontFamily: fonts.serifMedium, fontSize: type.title, lineHeight: 27, letterSpacing: -0.3 },
+  rowTitleSerif: { fontFamily: fonts.serifMedium, fontSize: type.reading, lineHeight: 24, letterSpacing: -0.1 },
+  headingSerif: { fontFamily: fonts.serifMedium, fontSize: type.heading, lineHeight: 21, letterSpacing: -0.1 },
+  chipSerif: { fontFamily: fonts.serifItalic, fontSize: type.body, lineHeight: 19 },
+  reading: { fontFamily: fonts.serif, fontSize: type.reading, lineHeight: lineHeight.reading },
+  excerpt: { fontFamily: fonts.serif, fontSize: type.reading, lineHeight: lineHeight.excerpt },
+  wordmark: { fontFamily: fonts.serifItalic, fontSize: 28, letterSpacing: -0.6 },
+  // Sans voice (interface)
+  hero: { fontFamily: fonts.sansBold, fontSize: type.hero, lineHeight: 44, letterSpacing: -1.2 },
+  displaySans: { fontFamily: fonts.sansBold, fontSize: type.display, lineHeight: 35, letterSpacing: -1 },
+  titleSans: { fontFamily: fonts.sansBold, fontSize: type.title, lineHeight: 27, letterSpacing: -0.7 },
+  headingSans: { fontFamily: fonts.sansBold, fontSize: type.heading, lineHeight: 21, letterSpacing: -0.2 },
+  body: { fontFamily: fonts.sans, fontSize: type.body, lineHeight: 22 },
+  bodyStrong: { fontFamily: fonts.sansBold, fontSize: type.body, lineHeight: 22 },
+  support: { fontFamily: fonts.sans, fontSize: type.support, lineHeight: 19 },
+  supportStrong: { fontFamily: fonts.sansBold, fontSize: type.support, lineHeight: 19 },
+  meta: { fontFamily: fonts.sans, fontSize: type.meta, lineHeight: 15 },
+  caps: { fontFamily: fonts.sansBold, fontSize: type.meta, letterSpacing: 1.2 },
+  capsLarge: { fontFamily: fonts.sansBold, fontSize: type.support, letterSpacing: 1.4 },
+  barTitle: { fontFamily: fonts.sansSemibold, fontSize: type.body },
+} as const;
+
+/** Elevation from the design: controls sit close to the surface, floating chrome lifts more. */
+export const shadow = {
+  control: { shadowOpacity: 1, shadowRadius: 12, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
+  float: { shadowOpacity: 1, shadowRadius: 24, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
+  sheet: { shadowOpacity: 1, shadowRadius: 24, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
+} as const;
+
+/** Pressed-state feedback: rows and list items tint, controls dim slightly. */
+export const pressed = {
+  dim: 0.72,
+  soft: 0.85,
 } as const;
 
 export const space = {

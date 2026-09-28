@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, View } from "react-native";
-import { radius, useTheme } from "../theme";
+import { pressed as pressedOpacity, radius, shadow, useTheme } from "../theme";
 
 type ControlButtonProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -16,13 +16,14 @@ function ControlButton({ icon, label, hint }: ControlButtonProps) {
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={hint}
-      style={({ pressed }) => [styles.button, { opacity: pressed ? 0.6 : 1 }]}
+      style={({ pressed }) => [styles.button, { opacity: pressed ? pressedOpacity.dim : 1 }]}
     >
       <Ionicons name={icon} size={19} color={theme.ink} />
     </Pressable>
   );
 }
 
+/** Map Controls pill from the design: surface fill, 1px line, control shadow (not glass). */
 export function MapControls() {
   const theme = useTheme();
   return (
@@ -30,8 +31,8 @@ export function MapControls() {
       style={[
         styles.pill,
         {
-          backgroundColor: theme.glass,
-          borderColor: theme.glassStroke,
+          backgroundColor: theme.surface,
+          borderColor: theme.line,
           shadowColor: theme.glassShadow,
         },
       ]}
@@ -48,11 +49,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 2,
     borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    shadowOpacity: 1,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    borderWidth: 1,
+    ...shadow.control,
   },
   button: {
     width: 44,

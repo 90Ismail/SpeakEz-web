@@ -9,14 +9,14 @@ import { Caps } from "./components/Caps";
 import { FloatingNav } from "./components/FloatingNav";
 import { IconButton } from "./components/IconButton";
 import { MapControls } from "./components/MapControls";
-import { ProfileButton } from "./components/ProfileButton";
+import { Wordmark } from "./components/Wordmark";
 import { DEFAULT_CAMERA, SHORT_WALK_M, UNLOCK_RADIUS_M, USE_GOOGLE_ON_IOS } from "./config";
 import { setDemoEnabled, setFakePosition, useDemoState } from "./demo";
 import { haversineMeters, type LatLng } from "./geo";
 import { googleMapStyle } from "./mapStyle";
 import { CLUSTERS, NotePin, PinCluster, pinMarkerGeometry, pinStateFor, YouAreHere } from "./NotePins";
 import { SEED_NOTES, seedNoteById } from "./seedNotes";
-import { fonts, radius, space, type, useTheme, useThemeMode } from "./theme";
+import { fonts, radius, space, textStyle, type, useTheme, useThemeMode } from "./theme";
 import { VoiceCard } from "./VoiceCard";
 import { ZONES } from "./zones";
 
@@ -24,6 +24,13 @@ const NAV_HEIGHT = 62;
 const TOP_FADE_OPACITIES = [1, 0.92, 0.8, 0.6, 0.4, 0.2];
 const MAP_PADDING = { top: 140, right: 8, bottom: 250, left: 8 };
 const FALLBACK_LANDMARK = "Northrop Mall";
+const SMALL_NUMBERS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+
+/** "Three voices nearby" for small counts (the editorial voice), digits beyond ten. */
+function voicesNearbyLabel(count: number): string {
+  const amount = count >= 0 && count < SMALL_NUMBERS.length ? SMALL_NUMBERS[count] : String(count);
+  return `${amount} ${count === 1 ? "voice" : "voices"} nearby`;
+}
 
 export function MapScreen() {
   const theme = useTheme();
@@ -182,7 +189,7 @@ export function MapScreen() {
 
       <View style={[styles.top, { paddingTop: insets.top + space.sm }]} pointerEvents="box-none">
         <View style={styles.controlsRow} pointerEvents="box-none">
-          <ProfileButton />
+          <Wordmark />
           <MapControls />
         </View>
         {demo.enabled ? (
@@ -203,19 +210,19 @@ export function MapScreen() {
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             style={styles.eyebrow}
           >
-            <Caps tone="ink2" size={type.support}>
+            <Text style={[styles.eyebrowText, { color: theme.ink2 }]}>
               {`NEAR ${(nearestLandmark?.name ?? FALLBACK_LANDMARK).toUpperCase()}`}
-            </Caps>
+            </Text>
           </Pressable>
           <View pointerEvents="none">
-            <Text style={[styles.headline, { color: theme.ink }]}>{`${voicesNearby} voices nearby`}</Text>
+            <Text style={[styles.headline, { color: theme.ink }]}>{voicesNearbyLabel(voicesNearby)}</Text>
           </View>
         </View>
       </View>
 
       <IconButton
         icon="locate"
-        variant="glass"
+        variant="surface"
         accessibilityLabel="Recenter map"
         disabled={!userPosition}
         onPress={() => {
@@ -289,9 +296,12 @@ const styles = StyleSheet.create({
   eyebrow: {
     alignSelf: "flex-start",
   },
+  eyebrowText: {
+    ...textStyle.capsLarge,
+  },
   headline: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.title },
+    ...textStyle.titleSerif,
+  },
   recenter: {
     position: "absolute",
     right: space.gutter,

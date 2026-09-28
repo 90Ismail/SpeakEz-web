@@ -6,6 +6,7 @@ import { IconButton } from "../../src/components/IconButton";
 import { ListRow } from "../../src/components/ListRow";
 import { NowPlayingBar } from "../../src/components/NowPlayingBar";
 import { ReactionButton } from "../../src/components/ReactionButton";
+import { TopBar } from "../../src/components/TopBar";
 import { Waveform } from "../../src/components/Waveform";
 import { PinCluster, PinLabel, PinUnlocked, YouAreHere } from "../../src/NotePins";
 import { SEED_NOTES } from "../../src/seedNotes";
@@ -14,6 +15,7 @@ import {
   getThemeOverride,
   palette,
   setThemeOverride,
+  textStyle,
   type ThemeMode,
   ThemeScope,
   useThemeMode,
@@ -56,6 +58,24 @@ function Samples() {
         <Text style={{ fontFamily: fonts.serif, fontSize: 19, lineHeight: 27, color: theme.ink2 }}>
           Newsreader serif 19/27 — the quiet transcript voice.
         </Text>
+      </Section>
+      <Section title="Type roles">
+        <Text style={[textStyle.displaySerif, { color: theme.ink }]}>Display serif</Text>
+        <Text style={[textStyle.titleSerif, { color: theme.ink }]}>Title serif</Text>
+        <Text style={[textStyle.rowTitleSerif, { color: theme.ink }]}>Row title serif</Text>
+        <Text style={[textStyle.chipSerif, { color: theme.ink }]}>Chip serif italic</Text>
+        <Text style={[textStyle.displaySans, { color: theme.ink }]}>Display sans</Text>
+        <Text style={[textStyle.headingSans, { color: theme.ink }]}>Heading sans</Text>
+        <Text style={[textStyle.caps, { color: theme.ink3 }]}>CAPS EYEBROW</Text>
+      </Section>
+      <Section title="Top bar">
+        <View style={{ marginHorizontal: -14 }}>
+          <TopBar
+            leading={{ label: "Back", onPress: () => {} }}
+            title="Help & resources"
+            trailing={<IconButton icon="search" accessibilityLabel="Search" variant="tint" />}
+          />
+        </View>
       </Section>
       <Section title="Buttons">
         <View style={{ flexDirection: "row", gap: 8 }}>

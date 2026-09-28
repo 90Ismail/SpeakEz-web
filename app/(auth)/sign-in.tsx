@@ -12,11 +12,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Caps } from "../../src/components/Caps";
 import { OnboardingButton, OnboardingTextButton } from "../../src/components/OnboardingButton";
 import { OnboardingDots } from "../../src/components/OnboardingDots";
-import { OnboardingTopBar } from "../../src/components/OnboardingTopBar";
-import { fonts, radius, space, type, useTheme } from "../../src/theme";
+import { TopBar } from "../../src/components/TopBar";
+import { pressed, radius, space, textStyle, useTheme } from "../../src/theme";
 
 const CODE_LENGTH = 6;
 
@@ -37,8 +36,10 @@ export default function SignInScreen() {
   const codeInputs = useRef<Array<TextInput | null>>([]);
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
+  const [emailFocused, setEmailFocused] = useState(false);
   const [over18, setOver18] = useState(false);
   const [code, setCode] = useState<string[]>(() => Array(CODE_LENGTH).fill(""));
+  const [focusedDigit, setFocusedDigit] = useState<number | null>(null);
 
   const localPart = localPartOf(email);
   const domain = domainOf(email);
@@ -48,6 +49,8 @@ export default function SignInScreen() {
   const codeComplete = code.every((digit) => digit.length === 1);
   const canSendCode = emailValid && over18;
   const showSuffix = !email.includes("@");
+
+  const emailLineColor = invalidDomain ? theme.danger : emailFocused ? theme.accent : theme.line;
 
   const handleBack = () => {
     if (step === 2) {
@@ -104,7 +107,7 @@ export default function SignInScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg, paddingTop: insets.top }]}>
-      <OnboardingTopBar onBack={handleBack} right={<OnboardingDots active={2} />} />
+      <TopBar leading={{ label: "Go back", onPress: handleBack }} trailing={<OnboardingDots active={2} />} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -118,9 +121,9 @@ export default function SignInScreen() {
           {step === 1 ? (
             <>
               <View style={[styles.badge, { backgroundColor: theme.accentSoft, borderColor: theme.accentLine }]}>
-                <Ionicons name="shield-checkmark" size={24} color={theme.accentText} />
+                <Ionicons name="shield-checkmark-outline" size={24} color={theme.accentText} />
               </View>
-              <Text style={[styles.heading, { color: theme.ink }]}>
+              <Text accessibilityRole="header" style={[styles.heading, { color: theme.ink }]}>
                 One quick check. Then you&apos;re anonymous.
               </Text>
               <Text style={[styles.body, { color: theme.ink2 }]}>
@@ -128,15 +131,13 @@ export default function SignInScreen() {
                 post or hear.
               </Text>
               <View style={styles.field}>
-                <Caps tone="ink3" style={styles.fieldLabel}>
-                  UMN EMAIL
-                </Caps>
-                <View
-                  style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.controlLine }]}
-                >
+                <Text style={[styles.fieldLabel, { color: theme.ink2 }]}>UMN email</Text>
+                <View style={[styles.input, { backgroundColor: theme.surface, borderColor: emailLineColor }]}>
                   <TextInput
                     value={email}
                     onChangeText={setEmail}
+                    onFocus={() => setEmailFocused(true)}
+                    onBlur={() => setEmailFocused(false)}
                     placeholder="goldy012"
                     placeholderTextColor={theme.ink3}
                     keyboardType="email-address"
@@ -161,7 +162,7 @@ export default function SignInScreen() {
                   </View>
                 ) : null}
                 <View style={styles.helper}>
-                  <Ionicons name="mail" size={14} color={theme.ink3} />
+                  <Ionicons name="mail-outline" size={14} color={theme.ink3} style={styles.helperIcon} />
                   <Text style={[styles.helperText, { color: theme.ink3 }]}>
                     We&apos;ll email a 6-digit code. The address is deleted once you&apos;re verified.
                   </Text>
@@ -172,7 +173,7 @@ export default function SignInScreen() {
                 accessibilityRole="checkbox"
                 accessibilityLabel="I'm 18 or older"
                 accessibilityState={{ checked: over18 }}
-                style={({ pressed }) => [styles.checkboxRow, { opacity: pressed ? 0.7 : 1 }]}
+                style={({ pressed: isPressed }) => [styles.checkboxRow, { opacity: isPressed ? pressed.dim : 1 }]}
               >
                 <View
                   style={[
@@ -188,9 +189,7 @@ export default function SignInScreen() {
                 <Text style={[styles.checkboxLabel, { color: theme.ink2 }]}>I&apos;m 18 or older</Text>
               </Pressable>
               <View style={[styles.keep, { borderTopColor: theme.line }]}>
-                <Caps tone="ink3" style={styles.keepLabel}>
-                  WHAT WE KEEP
-                </Caps>
+                <Text style={[styles.keepLabel, { color: theme.ink2 }]}>What we keep</Text>
                 <Text style={[styles.keepText, { color: theme.ink }]}>
                   One &quot;verified&quot; flag. No email, name or student ID.
                 </Text>
@@ -208,7 +207,9 @@ export default function SignInScreen() {
           ) : (
             <>
               <View style={styles.stepTwoTop}>
-                <Text style={[styles.heading, { color: theme.ink }]}>Enter your code</Text>
+                <Text accessibilityRole="header" style={[styles.heading, { color: theme.ink }]}>
+                  Enter your code
+                </Text>
                 <Text style={[styles.body, { color: theme.ink2 }]}>
                   {`We sent a 6-digit code to ${fullEmail}`}
                 </Text>
@@ -223,6 +224,8 @@ export default function SignInScreen() {
                     value={digit}
                     onChangeText={(value) => handleCodeChange(value, index)}
                     onKeyPress={(event) => handleCodeKeyPress(event.nativeEvent.key, index)}
+                    onFocus={() => setFocusedDigit(index)}
+                    onBlur={() => setFocusedDigit((current) => (current === index ? null : current))}
                     keyboardType="number-pad"
                     inputMode="numeric"
                     maxLength={1}
@@ -231,7 +234,11 @@ export default function SignInScreen() {
                     accessibilityLabel={`Code digit ${index + 1} of ${CODE_LENGTH}`}
                     style={[
                       styles.codeBox,
-                      { color: theme.ink, borderColor: theme.controlLine, backgroundColor: theme.surface },
+                      {
+                        color: theme.ink,
+                        backgroundColor: theme.surface,
+                        borderColor: focusedDigit === index ? theme.accent : theme.line,
+                      },
                     ]}
                   />
                 ))}
@@ -264,8 +271,8 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingTop: 20,
-    paddingHorizontal: 24,
-    gap: 16,
+    paddingHorizontal: space.gutter,
+    gap: space.md,
   },
   badge: {
     width: 56,
@@ -276,54 +283,53 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   heading: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.display,
-    lineHeight: 35,
-    letterSpacing: -1 },
+    ...textStyle.displaySans,
+  },
   body: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    lineHeight: 22.5 },
+    ...textStyle.body,
+  },
   field: {
-    gap: 8,
+    gap: space.sm,
   },
   fieldLabel: {
-    letterSpacing: 1.2,
+    ...textStyle.supportStrong,
   },
   input: {
-    height: 54,
+    height: 52,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: space.md,
     borderRadius: radius.md,
     borderWidth: 1,
   },
   inputText: {
     flex: 1,
     padding: 0,
-    fontFamily: fonts.sans,
-    fontSize: type.body },
+    ...textStyle.body,
+  },
   inputSuffix: {
-    fontFamily: fonts.sans,
-    fontSize: type.body },
+    ...textStyle.body,
+  },
   errorPanel: {
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: radius.xs,
+    borderRadius: radius.sm,
   },
   errorText: {
-    fontFamily: fonts.sansSemibold,
-    fontSize: type.support },
+    ...textStyle.supportStrong,
+  },
   helper: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 8,
+    gap: space.sm,
+  },
+  helperIcon: {
+    marginTop: 2,
   },
   helperText: {
     flex: 1,
-    fontFamily: fonts.sans,
-    fontSize: type.support,
-    lineHeight: 19 },
+    ...textStyle.support,
+  },
   checkboxRow: {
     minHeight: 44,
     flexDirection: "row",
@@ -339,20 +345,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkboxLabel: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
   keep: {
-    paddingTop: 16,
+    paddingTop: space.md,
     gap: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   keepLabel: {
-    letterSpacing: 1.2,
+    ...textStyle.supportStrong,
   },
   keepText: {
-    fontFamily: fonts.sans,
-    fontSize: type.body,
-    lineHeight: 22 },
+    ...textStyle.body,
+  },
   footer: {
     marginTop: "auto",
     width: "100%",
@@ -363,31 +368,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    flexWrap: "wrap",
+    gap: space.xs,
   },
   finePrintLead: {
-    fontFamily: fonts.sans,
-    fontSize: type.support },
+    ...textStyle.support,
+  },
   finePrintLink: {
-    fontFamily: fonts.sansBold,
-    fontSize: type.support },
+    ...textStyle.supportStrong,
+  },
   stepTwoTop: {
-    gap: 16,
-    paddingTop: 4,
+    gap: space.md,
+    paddingTop: space.xs,
   },
   codeRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 8,
+    marginTop: space.sm,
   },
   codeBox: {
-    width: 44,
-    height: 52,
+    width: 48,
+    height: 56,
     padding: 0,
     textAlign: "center",
-    fontFamily: fonts.sansSemibold,
-    fontSize: type.title,
-    borderRadius: radius.xs,
-    borderWidth: 1 },
+    ...textStyle.titleSans,
+    lineHeight: undefined,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
 });
