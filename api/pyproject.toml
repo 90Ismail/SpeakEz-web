@@ -9,6 +9,7 @@ dependencies = [
   "fastapi>=0.115",
   "geoalchemy2>=0.15",
   "pydantic-settings>=2.4",
+  "pyyaml>=6.0",
   "redis>=5.0",
   "sqlalchemy[asyncio]>=2.0",
   "tzdata>=2024.1",
@@ -24,6 +25,9 @@ dev = [
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.setuptools.package-data]
+app = ["safety/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
