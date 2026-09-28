@@ -1,8 +1,9 @@
 import uuid
 from collections.abc import Sequence
+from datetime import datetime
 
 from geoalchemy2 import Geography, Geometry
-from sqlalchemy import Row, cast, func, select
+from sqlalchemy import Row, cast, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Landmark, Note
@@ -50,3 +51,23 @@ async def live_notes_in_bbox(
     )
     result = await session.execute(stmt)
     return result.all()
+
+
+async def lock_for_publish(session: AsyncSession, note_id: uuid.UUID) -> Row | None:
+    """(author_id, status) for a note, row-locked until the transaction ends so two publish
+    calls can't race past the status check."""
+    stmt = select(Note.author_id, Note.status).where(Note.id == note_id).with_for_update()
+    return (await session.execute(stmt)).first()
+
+
+async def schedule_publish(
+    session: AsyncSession, note_id: uuid.UUID, publish_at: datetime, title: str | None
+) -> None:
+    """Set publish_at (and the edited title, if any). Only touches drafts; the note stays
+    "draft" until the scheduled job flips it to "live"."""
+    values: dict = {"publish_at": publish_at}
+    if title is not None:
+        values["title"] = title
+    await session.execute(
+        update(Note).where(Note.id == note_id, Note.status == "draft").values(**values)
+    )
