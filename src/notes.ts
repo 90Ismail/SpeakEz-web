@@ -9,4 +9,6 @@ export type MapNote = {
   coordinate: LatLng;
   durationSec: number;
   dayLabel: string;
+  /** Voice replies in the thread under this post. */
+  replyCount?: number;
 };

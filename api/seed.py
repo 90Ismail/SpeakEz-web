@@ -22,7 +22,7 @@ from app import storage
 from app.cache import close_redis, invalidate
 from app.config import get_settings
 from app.db import SessionLocal, engine
-from app.models import Account, Landmark, Note
+from app.models import Account, Landmark, Note, Prompt
 
 SEED_AUDIO_DIR = Path(__file__).resolve().parent / "seed_audio"
 
@@ -49,6 +49,47 @@ LANDMARKS = [
 
 # days_ago/hour/minute shape created_at so the API's day label matches src/seedNotes.ts
 # ("this evening", "last night", "yesterday", ...).
+# Daily voice journal prompts. Answers are journal-only; the API rotates one per campus day.
+PROMPTS = [
+    "What's something you haven't said out loud yet?",
+    "Where on campus do you feel most like yourself?",
+    "What did today ask of you?",
+    "Who do you wish knew how you're really doing?",
+    "What's a small thing that went right this week?",
+    "What are you carrying that isn't yours to carry?",
+    "What would you tell yourself from the first week of school?",
+    "What are you looking forward to, even a little?",
+    "When did you last feel proud of yourself?",
+    "What do you need more of right now?",
+    "What's been on your mind on the walk to class?",
+    "What would make tomorrow a bit easier?",
+]
+
+# Voice replies under seeded posts: the original stays first at the place, replies thread under it.
+SEED_REPLIES = [
+    {
+        "slug": "reply-walter-1",
+        "parent": "tired-at-walter",
+        "at": (0, 23, 40),
+        "duration_sec": 38,
+        "body": "Same floor, same flickering lights. I'm usually by the east windows. You're not the only one still here.",
+    },
+    {
+        "slug": "reply-walter-2",
+        "parent": "tired-at-walter",
+        "at": (0, 23, 58),
+        "duration_sec": 27,
+        "body": "Go home and sleep if you can. The work will still be there, and you'll be kinder to it tomorrow.",
+    },
+    {
+        "slug": "reply-failing-1",
+        "parent": "failing-first-semester",
+        "at": (0, 9, 15),
+        "duration_sec": 45,
+        "body": "I failed my first chem midterm and ended the semester with a B. Office hours changed everything for me. One bad start isn't the whole story.",
+    },
+]
+
 SEED_NOTES = [
     {
         "slug": "tired-at-walter",
@@ -221,11 +262,52 @@ async def seed() -> None:
                     audio_key=audio_key,
                     duration_sec=audio_duration or entry["duration_sec"],
                     status="live",
+                    visibility="public",
                     publish_at=created_at,
                     created_at=created_at,
                     seeded=True,
                 )
             )
+
+        for text in PROMPTS:
+            await session.execute(insert(Prompt).values(text=text).on_conflict_do_nothing(index_elements=["text"]))
+        await session.flush()
+
+        for reply in SEED_REPLIES:
+            days_ago, hour, minute = reply["at"]
+            created_at = created_at_for(days_ago, hour, minute, now)
+            parent = next(entry for entry in SEED_NOTES if entry["slug"] == reply["parent"])
+            session.add(
+                Note(
+                    id=uuid.uuid5(SEED_NOTES_NAMESPACE, reply["slug"]),
+                    author_id=author_id,
+                    parent_id=uuid.uuid5(SEED_NOTES_NAMESPACE, reply["parent"]),
+                    landmark_id=parent["landmark_id"],
+                    body=reply["body"],
+                    duration_sec=reply["duration_sec"],
+                    status="live",
+                    visibility="public",
+                    publish_at=created_at,
+                    created_at=created_at,
+                    seeded=True,
+                )
+            )
+
+        # One private voice journal entry: no place, never on the map, never unlockable.
+        session.add(
+            Note(
+                id=uuid.uuid5(SEED_NOTES_NAMESPACE, "journal-not-ready"),
+                author_id=author_id,
+                landmark_id=None,
+                title="Things I'm not ready to say yet",
+                body="I just needed to say this out loud once.",
+                duration_sec=108,
+                status="live",
+                visibility="journal",
+                created_at=created_at_for(7, 23, 10, now),
+                seeded=True,
+            )
+        )
 
         await session.commit()
 
@@ -233,7 +315,10 @@ async def seed() -> None:
     await invalidate("note:")
     await close_redis()
     await engine.dispose()
-    print(f"seeded {len(LANDMARKS)} landmarks and {len(SEED_NOTES)} notes")
+    print(
+        f"seeded {len(LANDMARKS)} landmarks, {len(SEED_NOTES)} public notes, "
+        f"{len(SEED_REPLIES)} replies, 1 journal entry and {len(PROMPTS)} prompts"
+    )
 
 
 if __name__ == "__main__":

@@ -7,12 +7,12 @@ import {
   useAudioRecorder,
 } from "expo-audio";
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RecordCaptureStage } from "../src/components/RecordCaptureStage";
-import { RecordPlaceStage, type PlaceChoice } from "../src/components/RecordPlaceStage";
+import { noteKindOf, RecordPlaceStage, type PlaceChoice } from "../src/components/RecordPlaceStage";
 import { RecordProcessingStage } from "../src/components/RecordProcessingStage";
 import {
   RecordReviewStage,
@@ -87,11 +87,28 @@ function nearestLandmark(position: LatLng) {
   );
 }
 
+const LOCATION_SUFFIX: Record<PlaceChoice, string> = {
+  spot: "THIS SPOT",
+  campus: "ON CAMPUS",
+  journal: "VOICE JOURNAL",
+  draft: "DRAFT",
+};
+
 export default function RecordScreen() {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const demo = useDemoState();
+  // Entry points: Journal's daily prompt (?prompt=) records a private journal answer;
+  // a story's "Reply with your voice" (?replyTo=&replyTitle=&replyPlace=) records a public reply
+  // at that post's place. Neither shows the choose-place step.
+  const params = useLocalSearchParams<{ prompt?: string; replyTo?: string; replyTitle?: string; replyPlace?: string }>();
+  const promptText = typeof params.prompt === "string" ? params.prompt : undefined;
+  const replyTo = typeof params.replyTo === "string" ? params.replyTo : undefined;
+  const replyPlace = typeof params.replyPlace === "string" ? params.replyPlace : undefined;
+  const replyTitle = typeof params.replyTitle === "string" ? params.replyTitle : undefined;
+  const isReply = replyTo !== undefined;
+  const isPromptAnswer = !isReply && promptText !== undefined;
 
   const [stage, setStage] = useState<Stage>("record");
   const [isRecording, setIsRecording] = useState(false);
@@ -99,7 +116,7 @@ export default function RecordScreen() {
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [position, setPosition] = useState<LatLng>(CAMPUS_CENTER);
-  const [choice, setChoice] = useState<PlaceChoice>("spot");
+  const [choice, setChoice] = useState<PlaceChoice>(isPromptAnswer ? "journal" : "spot");
   const [title, setTitle] = useState(mockTitle);
   const [excluded, setExcluded] = useState<Set<string>>(() => new Set());
   const [mockPlaying, setMockPlaying] = useState(false);
@@ -244,8 +261,9 @@ export default function RecordScreen() {
 
   const advanceToPlace = useCallback(() => {
     if (elapsedRef.current < 1 || isRecordingRef.current) return;
-    setStage("place");
-  }, []);
+    // Prompt answers are always journal entries and replies always live at the post's place.
+    setStage(isPromptAnswer || isReply ? "processing" : "place");
+  }, [isPromptAnswer, isReply]);
 
   const onPrimaryPressIn = useCallback(() => {
     if (isRecordingRef.current) {
@@ -351,6 +369,16 @@ export default function RecordScreen() {
           />
           <RecordCaptureStage
             landmarkName={spotLandmark.name}
+            headline={
+              isReply ? `Replying to \u201c${replyTitle ?? "this note"}\u201d` : isPromptAnswer ? promptText : undefined
+            }
+            context={
+              isReply
+                ? { icon: "chatbubble-outline", label: `Reply at ${replyPlace ?? spotLandmark.name} · anonymous` }
+                : isPromptAnswer
+                  ? { icon: "lock-closed-outline", label: "Today\u2019s prompt · private" }
+                  : undefined
+            }
             elapsedSec={elapsedSec}
             maxSec={MAX_SECONDS}
             isRecording={isRecording}
@@ -387,8 +415,8 @@ export default function RecordScreen() {
 
       {stage === "review" ? (
         <RecordReviewStage
-          landmarkName={(choice === "campus" ? campusLandmark : spotLandmark).name}
-          locationSuffix={choice === "campus" ? "ON CAMPUS" : choice === "draft" ? "DRAFT" : "THIS SPOT"}
+          landmarkName={isReply ? replyPlace ?? spotLandmark.name : (choice === "campus" ? campusLandmark : spotLandmark).name}
+          locationSuffix={isReply ? "REPLY" : isPromptAnswer ? "VOICE JOURNAL · TODAY\u2019S PROMPT" : LOCATION_SUFFIX[choice]}
           title={title}
           onChangeTitle={setTitle}
           suggestions={SUGGESTIONS}
@@ -399,11 +427,13 @@ export default function RecordScreen() {
           paragraphs={TRANSCRIPT}
           excludedIds={excluded}
           onToggleSentence={toggleSentence}
-          onBack={() => setStage("place")}
+          onBack={() => setStage(isPromptAnswer || isReply ? "record" : "place")}
           onDiscard={() => router.back()}
-          onPublish={() => router.replace("/")}
-          onKeepDraft={() => router.back()}
-          draftOnly={choice === "draft"}
+          onPublish={() => (isReply ? router.back() : router.replace("/"))}
+          onKeepDraft={() => router.replace("/journal")}
+          onSaveJournal={() => router.replace("/journal")}
+          kind={isReply ? "public" : noteKindOf(choice)}
+          isReply={isReply}
           topInset={insets.top}
           bottomInset={insets.bottom}
         />

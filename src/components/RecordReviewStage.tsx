@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import type { NoteKind } from "../noteKinds";
 import { pressed as pressedOpacity, radius, space, textStyle, useTheme } from "../theme";
 import { TopBar } from "./TopBar";
 
@@ -39,7 +40,11 @@ type RecordReviewStageProps = {
   onDiscard: () => void;
   onPublish: () => void;
   onKeepDraft: () => void;
-  draftOnly?: boolean;
+  /** Journal notes save privately; drafts only offer "keep"; public notes are left at a place. */
+  onSaveJournal: () => void;
+  kind: NoteKind;
+  /** A voice reply: always public, at the original post's place, no draft option. */
+  isReply?: boolean;
   topInset: number;
   bottomInset: number;
 };
@@ -66,11 +71,21 @@ export function RecordReviewStage({
   onDiscard,
   onPublish,
   onKeepDraft,
-  draftOnly = false,
+  onSaveJournal,
+  kind,
+  isReply = false,
   topInset,
   bottomInset,
 }: RecordReviewStageProps) {
   const theme = useTheme();
+  const primary: { label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void } =
+    isReply
+      ? { label: `Post reply at ${landmarkName}`, icon: "chatbubble-outline", onPress: onPublish }
+      : kind === "public"
+      ? { label: `Post at ${landmarkName}`, icon: "location-outline", onPress: onPublish }
+      : kind === "journal"
+        ? { label: "Save to journal", icon: "lock-closed-outline", onPress: onSaveJournal }
+        : { label: "Save as draft", icon: "ellipse-outline", onPress: onKeepDraft };
   const paragraphColor = { ink: theme.ink, ink2: theme.ink2 };
 
   return (
@@ -94,7 +109,7 @@ export function RecordReviewStage({
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={[styles.location, { color: theme.accentText }]}>
-          {`${landmarkName.toUpperCase()}  ·  ${locationSuffix}`}
+          {kind === "public" ? `${landmarkName.toUpperCase()}  ·  ${locationSuffix}` : locationSuffix}
         </Text>
 
         <View style={[styles.titleField, { borderBottomColor: theme.line }]}>
@@ -225,31 +240,25 @@ export function RecordReviewStage({
         ]}
       >
         <Pressable
-          onPress={draftOnly ? onKeepDraft : onPublish}
+          onPress={primary.onPress}
           accessibilityRole="button"
-          accessibilityLabel={draftOnly ? "Keep as a draft" : `Leave it at ${landmarkName}`}
+          accessibilityLabel={primary.label}
           style={({ pressed }) => [
             styles.publish,
             { backgroundColor: theme.ink, opacity: pressed ? pressedOpacity.soft : 1 },
           ]}
         >
-          <Ionicons
-            name={draftOnly ? "book-outline" : "location-outline"}
-            size={16}
-            color={theme.surface}
-          />
-          <Text style={[styles.publishLabel, { color: theme.surface }]}>
-            {draftOnly ? "Keep as a draft" : `Leave it at ${landmarkName}`}
-          </Text>
+          <Ionicons name={primary.icon} size={16} color={theme.surface} />
+          <Text style={[styles.publishLabel, { color: theme.surface }]}>{primary.label}</Text>
         </Pressable>
-        {draftOnly ? null : (
+        {kind === "draft" || isReply ? null : (
           <Pressable
             onPress={onKeepDraft}
             accessibilityRole="button"
-            accessibilityLabel="Keep as a private draft"
+            accessibilityLabel="Save as a draft instead"
             style={({ pressed }) => [styles.draft, { opacity: pressed ? pressedOpacity.dim : 1 }]}
           >
-            <Text style={[styles.draftLabel, { color: theme.ink2 }]}>Keep as a private draft</Text>
+            <Text style={[styles.draftLabel, { color: theme.ink2 }]}>Save as a draft instead</Text>
           </Pressable>
         )}
       </View>
