@@ -1,16 +1,22 @@
 """Safety gate: check a transcript against the versioned lexicon before a note can go live.
 
-Pure and deterministic: no DB, Redis, settings, network or LLM calls. The worker imports
-check_transcript directly (worker/README.md, phase 1) so there is one implementation.
+check_transcript is pure and deterministic: no DB, Redis, settings, network or LLM calls. The
+worker imports it directly (worker/README.md, phase 1) so there is one implementation.
+record_verdict is the separate step that writes the result to moderation_log.
 """
 
 import re
 import unicodedata
+import uuid
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 LEXICON_PATH = Path(__file__).resolve().parent.parent / "safety" / "lexicon.v1.yaml"
 LAYER = "lexicon"
@@ -137,3 +143,15 @@ def check_transcript(text: str) -> SafetyVerdict:
             if entry.regex.search(normalized):
                 return SafetyVerdict(decision, entry.label, LAYER, lexicon.version)
     return SafetyVerdict(CLEAN_DECISION, None, LAYER, lexicon.version)
+
+
+async def record_verdict(session: "AsyncSession", note_id: uuid.UUID, verdict: SafetyVerdict) -> None:
+    """Write the verdict to moderation_log. Call it for every verdict, clean ones included.
+
+    Only note_id, layer, label and decision are stored: never the transcript, author, email or
+    position. The caller commits.
+    """
+    # Imported here so importing check_transcript never pulls in the database layer.
+    from ..repositories import moderation as moderation_repo
+
+    await moderation_repo.insert_log(session, note_id, verdict.layer, verdict.label, verdict.decision)

@@ -1,8 +1,17 @@
+import subprocess
+import sys
+import uuid
+from pathlib import Path
+
 import pytest
 import yaml
 
+from app.models import ModerationLog
+from app.repositories import moderation as moderation_repo
 from app.services import safety
-from app.services.safety import check_transcript
+from app.services.safety import check_transcript, record_verdict
+
+NOTE_ID = uuid.uuid4()
 
 # One real-sounding transcript per lexicon entry. A new entry needs a sample here
 # (test_every_entry_has_a_sample fails otherwise).
@@ -141,3 +150,65 @@ def test_lexicon_version_matches_yaml():
     raw = yaml.safe_load(safety.LEXICON_PATH.read_text(encoding="utf-8"))
     assert check_transcript("hello").lexicon_version == raw["version"] == 1
     assert check_transcript("kms").lexicon_version == raw["version"]
+
+
+class FakeSession:
+    def __init__(self):
+        self.added = []
+        self.flushed = False
+
+    def add(self, row):
+        self.added.append(row)
+
+    async def flush(self):
+        self.flushed = True
+
+
+def patch_insert(monkeypatch):
+    calls = []
+
+    async def insert_log(session, note_id, layer, label, decision):
+        calls.append((note_id, layer, label, decision))
+
+    monkeypatch.setattr(moderation_repo, "insert_log", insert_log)
+    return calls
+
+
+@pytest.mark.parametrize(
+    "text,decision,label",
+    [
+        ("Walked past Northrop tonight.", "draft", None),
+        ("I want to unalive myself", "held", "self_harm.unalive"),
+        ("I'm going to shoot up Coffman tomorrow.", "blocked", "threat.attack_place"),
+    ],
+)
+async def test_record_verdict_logs_every_decision(monkeypatch, text, decision, label):
+    calls = patch_insert(monkeypatch)
+    await record_verdict(FakeSession(), NOTE_ID, check_transcript(text))
+    assert calls == [(NOTE_ID, "lexicon", label, decision)]
+
+
+async def test_record_verdict_never_stores_the_transcript(monkeypatch):
+    text = "I want to unalive myself behind Walter"
+    calls = patch_insert(monkeypatch)
+    await record_verdict(FakeSession(), NOTE_ID, check_transcript(text))
+    stored = " ".join(str(value) for value in calls[0])
+    assert "unalive myself" not in stored
+    assert "walter" not in stored.lower()
+
+
+async def test_insert_log_writes_only_the_audit_fields():
+    session = FakeSession()
+    await moderation_repo.insert_log(session, NOTE_ID, "lexicon", "self_harm.kms", "held")
+    [row] = session.added
+    assert isinstance(row, ModerationLog)
+    assert (row.note_id, row.layer, row.label, row.decision) == (NOTE_ID, "lexicon", "self_harm.kms", "held")
+    assert session.flushed
+
+
+def test_check_transcript_import_stays_free_of_the_database():
+    code = (
+        "import sys; import app.services.safety; "
+        "assert not any(m.startswith(('sqlalchemy', 'app.db', 'app.config', 'redis')) for m in sys.modules)"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True, cwd=Path(__file__).resolve().parent.parent)
