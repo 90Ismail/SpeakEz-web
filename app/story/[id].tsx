@@ -39,7 +39,6 @@ import { buildWordTimings, currentParagraphAt, type WordTiming } from "../../src
 
 const MAP_LATITUDE_DELTA = 0.006;
 const HEADER_HEIGHT = 252;
-const STRIP_HEIGHT = 168;
 const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
 
 function clamp(value: number, min: number, max: number): number {
@@ -224,7 +223,6 @@ export default function StoryScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [view, setView] = useState<"story" | "playing">("story");
   const [saved, setSaved] = useState(false);
   const [reaction, setReaction] = useState<ReactionType | null>(null);
   const [transcriptVisible, setTranscriptVisible] = useState(true);
@@ -268,7 +266,9 @@ export default function StoryScreen() {
     [note, landmark],
   );
   const unlocked = access !== "locked";
-  const progress = durationSec > 0 ? player.currentTime / durationSec : 0;
+  const playbackStarted = player.playing || player.currentTime > 0;
+  const totalDuration = player.duration > 0 ? player.duration : durationSec;
+  const progress = totalDuration > 0 ? player.currentTime / totalDuration : 0;
   const currentIndex = currentParagraphAt(timings, player.currentTime);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -286,7 +286,10 @@ export default function StoryScreen() {
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
+        onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: (event) => {
           const percent = clamp(event.nativeEvent.locationX / trackWidthRef.current, 0, 1);
           dragStartRef.current = percent;
@@ -301,14 +304,7 @@ export default function StoryScreen() {
   );
 
   useEffect(() => {
-    paragraphOffsetsRef.current = [];
-    transcriptOffsetRef.current = 0;
-    lastScrolledIndexRef.current = null;
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, [view]);
-
-  useEffect(() => {
-    if (view !== "playing" || !transcriptVisible) return;
+    if (!playbackStarted || !transcriptVisible) return;
     if (lastScrolledIndexRef.current === null) {
       lastScrolledIndexRef.current = currentIndex;
       return;
@@ -321,7 +317,7 @@ export default function StoryScreen() {
       y: Math.max(transcriptOffsetRef.current + offset - 80, 0),
       animated: true,
     });
-  }, [currentIndex, view, transcriptVisible]);
+  }, [currentIndex, playbackStarted, transcriptVisible]);
 
   if (!note || !landmark) {
     return (
@@ -351,48 +347,46 @@ export default function StoryScreen() {
     ? `${next.landmark.name.toUpperCase()}  ·  ${formatDistanceUpper(next.meters)} ${next.direction}`
     : "";
 
-  const startPlayback = () => {
-    if (!player.playing) player.toggle();
-    setView("playing");
-  };
-
-  const collapsePlayback = () => {
-    if (player.playing) player.toggle();
-    setView("story");
-  };
-
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
-        contentContainerStyle={view === "story" ? { paddingBottom: insets.bottom } : undefined}
+        contentContainerStyle={{ paddingBottom: insets.bottom + (playbackStarted ? 96 : 0) }}
         showsVerticalScrollIndicator={false}
       >
-        {view === "story" ? (
-          <>
-            <View style={styles.mapHeader}>
-              <StoryMap landmark={landmark} height={HEADER_HEIGHT} />
-              <Fade direction="top" height={96} />
-              <Fade direction="bottom" height={55} />
-              <IconButton
-                icon="chevron-down"
-                variant="glass"
-                accessibilityLabel="Back to map"
-                onPress={() => router.back()}
-                style={[styles.headerLeft, { top: insets.top + 6 }]}
-              />
-              <IconButton
-                icon={saved ? "bookmark" : "bookmark-outline"}
-                variant="glass"
-                accessibilityLabel={saved ? "Saved" : "Save story"}
-                onPress={() => setSaved((value) => !value)}
-                style={[styles.headerRight, { top: insets.top + 6 }]}
-              />
+        <View style={styles.mapHeader}>
+          <StoryMap landmark={landmark} height={HEADER_HEIGHT} listening={player.playing} />
+          <Fade direction="top" height={96} />
+          <Fade direction="bottom" height={55} />
+          {playbackStarted ? (
+            <View pointerEvents="none" style={styles.listeningWrap}>
+              <View style={[styles.listeningChip, { backgroundColor: theme.ink, borderColor: theme.ink }]}>
+                <Ionicons name="headset-outline" size={14} color={theme.accent} />
+                <Text style={[styles.listeningChipText, { color: theme.surface }]}>Listening here</Text>
+              </View>
             </View>
-            <View style={styles.article}>
-              <Text style={[styles.caps, { color: theme.accentText }]}>{landmark.name.toUpperCase()}</Text>
-              <View style={styles.headlineBlock}>
+          ) : null}
+          <IconButton
+            icon="chevron-down"
+            variant="glass"
+            accessibilityLabel="Back to map"
+            onPress={() => router.back()}
+            style={[styles.headerLeft, { top: insets.top + 6 }]}
+          />
+          <IconButton
+            icon={saved ? "bookmark" : "bookmark-outline"}
+            variant="glass"
+            accessibilityLabel={saved ? "Saved" : "Save story"}
+            onPress={() => setSaved((value) => !value)}
+            style={[styles.headerRight, { top: insets.top + 6 }]}
+          />
+        </View>
+        <View style={styles.article}>
+          <Text style={[styles.caps, { color: theme.accentText }]}>
+            {`${landmark.name.toUpperCase()}${playbackStarted ? "  ·  NOW PLAYING" : ""}`}
+          </Text>
+          <View style={styles.headlineBlock}>
                 <Text style={[styles.headline, { color: theme.ink }]}>{note.title}</Text>
               </View>
               {unlocked ? (
@@ -403,15 +397,19 @@ export default function StoryScreen() {
                   <View style={[styles.audioBlock, { borderColor: theme.line }]}>
                     <View style={styles.audioRow}>
                       <Pressable
-                        onPress={startPlayback}
+                        onPress={player.toggle}
                         accessibilityRole="button"
-                        accessibilityLabel="Play story"
+                        accessibilityLabel={player.playing ? "Pause story" : "Play story"}
                         style={({ pressed }) => [
                           styles.playButton,
                           { backgroundColor: theme.accent, opacity: pressed ? pressedOpacity.dim : 1 },
                         ]}
                       >
-                        <Ionicons name="play" size={18} color={theme.onAccent} />
+                        <Ionicons
+                          name={player.playing ? "pause" : "play"}
+                          size={18}
+                          color={theme.onAccent}
+                        />
                       </Pressable>
                       <Waveform
                         progress={progress}
@@ -420,17 +418,83 @@ export default function StoryScreen() {
                         style={styles.audioWave}
                       />
                       <Text style={[styles.audioTime, { color: theme.ink2 }]}>
-                        {`${formatClock(player.currentTime)} / ${formatClock(durationSec)}`}
+                        {`${formatClock(player.currentTime)} / ${formatClock(totalDuration)}`}
                       </Text>
                     </View>
+                    {playbackStarted ? (
+                      <View
+                        style={styles.scrubber}
+                        onLayout={(event) => {
+                          trackWidthRef.current = event.nativeEvent.layout.width;
+                          setTrackWidth(event.nativeEvent.layout.width);
+                        }}
+                        accessibilityRole="adjustable"
+                        accessibilityLabel="Seek through the story"
+                        accessibilityValue={{
+                          min: 0,
+                          max: Math.round(totalDuration),
+                          now: Math.round(player.currentTime),
+                        }}
+                        {...panResponder.panHandlers}
+                      >
+                        <View style={[styles.scrubberTrack, { backgroundColor: theme.waveMuted }]} />
+                        <View
+                          style={[
+                            styles.scrubberProgress,
+                            { width: `${Math.round(progress * 100)}%`, backgroundColor: theme.accent },
+                          ]}
+                        />
+                        {trackWidth > 0 && (
+                          <View
+                            style={[
+                              styles.scrubberKnob,
+                              {
+                                left: clamp(progress * trackWidth - 8, 0, Math.max(trackWidth - 16, 0)),
+                                backgroundColor: theme.accent,
+                                borderColor: theme.ring,
+                              },
+                            ]}
+                          />
+                        )}
+                      </View>
+                    ) : null}
                   </View>
-                  <View style={styles.transcript}>
-                    {body.map((text, index) => (
-                      <Text key={index} style={[styles.paragraph, { color: theme.ink }]}>
-                        {text}
-                      </Text>
-                    ))}
-                  </View>
+                  {transcriptVisible ? (
+                    <View
+                      style={styles.transcript}
+                      onLayout={(event) => {
+                        transcriptOffsetRef.current = event.nativeEvent.layout.y;
+                      }}
+                    >
+                    {timings.map((timing) => {
+                      const isCurrent = playbackStarted && timing.index === currentIndex;
+                      const color = playbackStarted
+                        ? isCurrent
+                          ? theme.ink
+                          : timing.index < currentIndex
+                            ? theme.ink2
+                            : theme.ink3
+                        : theme.ink;
+                      return (
+                        <Pressable
+                          key={timing.index}
+                          onPress={() => player.seekTo(timing.startSec)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Play from this paragraph"
+                          style={[
+                            styles.paragraphWrap,
+                            isCurrent && [styles.paragraphCurrent, { borderLeftColor: theme.accent }],
+                          ]}
+                          onLayout={(event) => {
+                            paragraphOffsetsRef.current[timing.index] = event.nativeEvent.layout.y;
+                          }}
+                        >
+                          <Text style={[styles.paragraph, { color }]}>{timing.text}</Text>
+                        </Pressable>
+                      );
+                    })}
+                    </View>
+                  ) : null}
                   <View style={styles.endMark}>
                     <Text style={[styles.endMarkText, { color: theme.ink3 }]}>·  ·  ·</Text>
                   </View>
@@ -505,110 +569,9 @@ export default function StoryScreen() {
                   </Text>
                 </View>
               )}
-            </View>
-          </>
-        ) : (
-          <>
-            <View style={styles.mapStrip}>
-              <StoryMap landmark={landmark} height={STRIP_HEIGHT} listening />
-              <Fade direction="top" height={80} />
-              <IconButton
-                icon="map-outline"
-                variant="glass"
-                accessibilityLabel="Back to story"
-                onPress={collapsePlayback}
-                style={[styles.headerRight, { top: insets.top + 6 }]}
-              />
-            </View>
-            <View style={[styles.nowPlaying, { borderColor: theme.line }]}>
-              <Text style={[styles.caps, { color: theme.accentText }]}>
-                {`${landmark.name.toUpperCase()}  ·  NOW PLAYING`}
-              </Text>
-              <Text style={[styles.nowTitle, { color: theme.ink }]} numberOfLines={1}>
-                {note.title}
-              </Text>
-              <View style={styles.nowControls}>
-                <Waveform
-                  progress={progress}
-                  seed={waveSeed(note.id)}
-                  height={26}
-                  style={styles.nowWave}
-                />
-                <Text style={[styles.nowTime, { color: theme.ink2 }]}>
-                  {`${formatClock(player.currentTime)} / ${formatClock(durationSec)}`}
-                </Text>
-              </View>
-              <View
-                style={styles.scrubber}
-                onLayout={(event) => {
-                  trackWidthRef.current = event.nativeEvent.layout.width;
-                  setTrackWidth(event.nativeEvent.layout.width);
-                }}
-                accessibilityRole="adjustable"
-                accessibilityLabel="Seek through the story"
-                accessibilityValue={{
-                  min: 0,
-                  max: durationSec,
-                  now: Math.round(player.currentTime),
-                }}
-                {...panResponder.panHandlers}
-              >
-                <View style={[styles.scrubberTrack, { backgroundColor: theme.waveMuted }]} />
-                <View
-                  style={[
-                    styles.scrubberProgress,
-                    { width: `${Math.round(progress * 100)}%`, backgroundColor: theme.accent },
-                  ]}
-                />
-                {trackWidth > 0 && (
-                  <View
-                    style={[
-                      styles.scrubberKnob,
-                      {
-                        left: clamp(progress * trackWidth - 8, 0, Math.max(trackWidth - 16, 0)),
-                        backgroundColor: theme.accent,
-                        borderColor: theme.ring,
-                      },
-                    ]}
-                  />
-                )}
-              </View>
-            </View>
-            {transcriptVisible && (
-              <View
-                style={styles.playingTranscript}
-                onLayout={(event) => {
-                  transcriptOffsetRef.current = event.nativeEvent.layout.y;
-                }}
-              >
-                {timings.map((timing) => {
-                  const isCurrent = timing.index === currentIndex;
-                  const color = isCurrent
-                    ? theme.ink
-                    : timing.index < currentIndex
-                      ? theme.ink2
-                      : theme.ink3;
-                  return (
-                    <View
-                      key={timing.index}
-                      style={[
-                        styles.paragraphWrap,
-                        isCurrent && [styles.paragraphCurrent, { borderLeftColor: theme.accent }],
-                      ]}
-                      onLayout={(event) => {
-                        paragraphOffsetsRef.current[timing.index] = event.nativeEvent.layout.y;
-                      }}
-                    >
-                      <Text style={[styles.paragraph, { color }]}>{timing.text}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </>
-        )}
+        </View>
       </ScrollView>
-      {view === "playing" && (
+      {playbackStarted && (
         <>
           <Fade direction="bottom" height={150} />
           <View
@@ -686,13 +649,24 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   scroll: { flex: 1 },
   mapHeader: { overflow: "hidden" },
-  mapStrip: { overflow: "hidden" },
   mapWrap: { width: "100%", overflow: "hidden" },
   headerLeft: { position: "absolute", left: space.gutter },
   headerRight: { position: "absolute", right: space.gutter },
   fade: { position: "absolute", left: 0, right: 0 },
   fadeTop: { top: 0 },
   fadeBottom: { bottom: 0 },
+  listeningWrap: { position: "absolute", left: 0, right: 0, bottom: 18, alignItems: "center" },
+  listeningChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+    ...shadow.control,
+  },
+  listeningChipText: { fontFamily: fonts.sansBold, fontSize: type.support },
   pinWrap: { width: 60, height: 60, alignItems: "center", justifyContent: "center" },
   pinHalo: { position: "absolute", width: 60, height: 60, borderRadius: 30, borderWidth: 1.5 },
   pinDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2 },
@@ -741,27 +715,10 @@ const styles = StyleSheet.create({
   supportText: { ...textStyle.support, flex: 1 },
   lockedRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 12 },
   lockedText: { ...textStyle.support },
-  nowPlaying: {
-    paddingVertical: 14,
-    paddingHorizontal: space.gutter,
-    gap: 6,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  nowTitle: { ...textStyle.headingSerif },
-  nowControls: { flexDirection: "row", alignItems: "center", gap: 14, paddingTop: 6 },
-  nowWave: { flex: 1 },
-  nowTime: { ...textStyle.meta },
-  scrubber: { height: 20, justifyContent: "center" },
+  scrubber: { height: 20, justifyContent: "center", marginTop: 12 },
   scrubberTrack: { position: "absolute", left: 0, right: 0, top: 8, height: 4, borderRadius: 2 },
   scrubberProgress: { position: "absolute", left: 0, top: 8, height: 4, borderRadius: 2 },
   scrubberKnob: { position: "absolute", top: 2, width: 16, height: 16, borderRadius: 8, borderWidth: 2 },
-  playingTranscript: {
-    paddingTop: 24,
-    paddingHorizontal: space.gutter,
-    paddingBottom: 120,
-    gap: 18,
-  },
   paragraphWrap: { position: "relative" },
   paragraphCurrent: { marginLeft: -16, paddingLeft: 14, borderLeftWidth: 2 },
   playerWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" },

@@ -39,6 +39,7 @@ export default function RootLayout() {
           animation: "fade",
         }}
       >
+        <Stack.Screen name="story/[id]" options={{ gestureEnabled: false }} />
         <Stack.Screen
           name="profile"
           options={{
