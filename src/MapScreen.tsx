@@ -5,13 +5,12 @@ import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Circle, Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchMapNotes, type MapBounds } from "./api";
-import { CAMPUS_LANDMARKS, type CampusLandmark } from "./campusLandmarks";
 import { Caps } from "./components/Caps";
 import { FloatingNav, NAV_HEIGHT } from "./components/FloatingNav";
 import { IconButton } from "./components/IconButton";
 import { MapControls } from "./components/MapControls";
 import { Wordmark } from "./components/Wordmark";
-import { DEFAULT_CAMERA, SHORT_WALK_M, UNLOCK_RADIUS_M, USE_GOOGLE_ON_IOS } from "./config";
+import { DEFAULT_CAMERA, UNLOCK_RADIUS_M, USE_GOOGLE_ON_IOS } from "./config";
 import { setDemoEnabled, setFakePosition, useDemoState } from "./demo";
 import { haversineMeters, type LatLng } from "./geo";
 import { googleMapStyle } from "./mapStyle";
@@ -19,7 +18,7 @@ import { CLUSTERS, NotePin, PinCluster, pinMarkerGeometry, pinStateFor, YouAreHe
 import type { MapNote } from "./notes";
 import { fonts, radius, space, textStyle, type, useTheme, useThemeMode } from "./theme";
 import { VoiceCard } from "./VoiceCard";
-import { ZONES } from "./zones";
+import { areaAt, OUTSIDE_CAMPUS_LABEL, ZONES } from "./zones";
 
 const TOP_FADE_OPACITIES = [1, 0.92, 0.8, 0.6, 0.4, 0.2];
 // Apple's legal label / Google's logo sit inside the bottom map padding. With no card open they
@@ -28,13 +27,23 @@ const MAP_PADDING_SIDES = { top: 140, right: 8, left: 8 };
 const CARD_PADDING_BOTTOM = 250;
 const ATTRIBUTION_GAP = 4;
 const ATTRIBUTION_STRIP = 22;
-const BANK_NAMES = { east: "East Bank", west: "West Bank" } as const;
+/** "3 voices nearby" for whatever the map is showing; never a bare "No voices". */
+function voicesLabel(count: number): string {
+  if (count === 0) return "Quiet here for now";
+  return `${count} ${count === 1 ? "voice" : "voices"} nearby`;
+}
 
-/** "3 voices nearby"; when none are within a short walk, count the whole campus instead of saying "No". */
-function voicesLabel(nearby: number, total: number): string {
-  const plural = (count: number) => (count === 1 ? "voice" : "voices");
-  if (nearby > 0) return `${nearby} ${plural(nearby)} nearby`;
-  return `${total} ${plural(total)} on campus`;
+function labelFor(region: LatLng): string {
+  return areaAt(region)?.label ?? OUTSIDE_CAMPUS_LABEL;
+}
+
+function inBounds(point: LatLng, bounds: MapBounds): boolean {
+  return (
+    point.latitude >= bounds.south &&
+    point.latitude <= bounds.north &&
+    point.longitude >= bounds.west &&
+    point.longitude <= bounds.east
+  );
 }
 
 function boundsFromRegion(region: Region): MapBounds {
@@ -63,6 +72,9 @@ export function MapScreen() {
   const demo = useDemoState();
   const [livePosition, setLivePosition] = useState<LatLng | null>(null);
   const [notes, setNotes] = useState<MapNote[]>([]);
+  // The header follows the map's centre ("Near Dinkytown"), not the user's GPS.
+  const [areaLabel, setAreaLabel] = useState(() => labelFor(DEFAULT_CAMERA));
+  const [viewBounds, setViewBounds] = useState<MapBounds>(() => boundsFromRegion(DEFAULT_CAMERA));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const pinPressAt = useRef(0);
   const requestSeq = useRef(0);
@@ -117,22 +129,10 @@ export function MapScreen() {
 
   const userPosition = demo.fakePosition ?? livePosition;
 
-  const nearestLandmark = useMemo(() => {
-    if (!userPosition) return undefined;
-    return CAMPUS_LANDMARKS.reduce<CampusLandmark | undefined>(
-      (nearest, landmark) =>
-        !nearest ||
-        haversineMeters(userPosition, landmark.coordinate) < haversineMeters(userPosition, nearest.coordinate)
-          ? landmark
-          : nearest,
-      undefined,
-    );
-  }, [userPosition]);
-
-  const voicesNearby = useMemo(() => {
-    if (!userPosition) return notes.length;
-    return notes.filter((note) => haversineMeters(userPosition, note.coordinate) <= SHORT_WALK_M).length;
-  }, [notes, userPosition]);
+  const voicesInView = useMemo(
+    () => notes.filter((note) => inBounds(note.coordinate, viewBounds)).length,
+    [notes, viewBounds],
+  );
 
   const selectedNote = selectedId ? notes.find((note) => note.id === selectedId) ?? null : null;
   const selectedDistance =
@@ -171,7 +171,13 @@ export function MapScreen() {
         mapPadding={mapPadding}
         onPress={handleMapPress}
         onLongPress={(event) => setFakePosition(event.nativeEvent.coordinate)}
-        onRegionChangeComplete={(region) => loadNotes(boundsFromRegion(region))}
+        onRegionChange={(region) => setAreaLabel(labelFor(region))}
+        onRegionChangeComplete={(region) => {
+          const bounds = boundsFromRegion(region);
+          setAreaLabel(labelFor(region));
+          setViewBounds(bounds);
+          loadNotes(bounds);
+        }}
       >
         {ZONES.map((zone) => (
           <Circle
@@ -261,11 +267,11 @@ export function MapScreen() {
             style={styles.eyebrow}
           >
             <Text style={[styles.eyebrowText, { color: theme.ink2 }]}>
-              {nearestLandmark ? `NEAR ${BANK_NAMES[nearestLandmark.bank].toUpperCase()} · UMN` : "UMN CAMPUS"}
+              {areaLabel}
             </Text>
           </Pressable>
           <View pointerEvents="none">
-            <Text style={[styles.headline, { color: theme.ink }]}>{voicesLabel(voicesNearby, notes.length)}</Text>
+            <Text style={[styles.headline, { color: theme.ink }]}>{voicesLabel(voicesInView)}</Text>
           </View>
         </View>
       </View>
