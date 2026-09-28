@@ -57,6 +57,7 @@ export type UnlockWord = {
   word: string;
   start: number;
   end: number;
+  paragraph?: number;
 };
 
 export type UnlockResult = {

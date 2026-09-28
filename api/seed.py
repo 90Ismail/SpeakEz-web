@@ -7,17 +7,24 @@ Landmarks mirror src/campusLandmarks.ts; notes mirror src/seedNotes.ts.
 import asyncio
 import hashlib
 import hmac
+import json
+import math
 import uuid
 from datetime import datetime, time, timedelta, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from geoalchemy2.elements import WKTElement
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 
+from app import storage
+from app.cache import close_redis, invalidate
 from app.config import get_settings
 from app.db import SessionLocal, engine
 from app.models import Account, Landmark, Note
+
+SEED_AUDIO_DIR = Path(__file__).resolve().parent / "seed_audio"
 
 DISPLAY_TZ = ZoneInfo(get_settings().display_timezone)
 
@@ -137,6 +144,19 @@ SEED_NOTES = [
 ]
 
 
+def load_seed_media(slug: str) -> tuple[str | None, list[dict] | None, int | None]:
+    """Copy generated speech into the media volume and load its word timings, when present."""
+    audio_file = SEED_AUDIO_DIR / f"{slug}.mp3"
+    words_file = SEED_AUDIO_DIR / f"{slug}.words.json"
+    if not audio_file.is_file():
+        return None, None, None
+    audio_key = f"audios/{slug}.mp3"
+    storage.save(audio_key, audio_file.read_bytes())
+    words = json.loads(words_file.read_text(encoding="utf-8")) if words_file.is_file() else None
+    duration = int(math.ceil(words[-1]["end"] + 0.5)) if words else None
+    return audio_key, words, duration
+
+
 def created_at_for(days_ago: int, hour: int, minute: int, now: datetime) -> datetime:
     """Local (campus) wall-clock time → UTC.
 
@@ -189,6 +209,7 @@ async def seed() -> None:
         for entry in SEED_NOTES:
             days_ago, hour, minute = entry["at"]
             created_at = created_at_for(days_ago, hour, minute, now)
+            audio_key, words, audio_duration = load_seed_media(entry["slug"])
             session.add(
                 Note(
                     id=uuid.uuid5(SEED_NOTES_NAMESPACE, entry["slug"]),
@@ -196,7 +217,9 @@ async def seed() -> None:
                     landmark_id=entry["landmark_id"],
                     title=entry["title"],
                     body="\n\n".join(entry["body"]),
-                    duration_sec=entry["duration_sec"],
+                    words=words,
+                    audio_key=audio_key,
+                    duration_sec=audio_duration or entry["duration_sec"],
                     status="live",
                     publish_at=created_at,
                     created_at=created_at,
@@ -206,6 +229,9 @@ async def seed() -> None:
 
         await session.commit()
 
+    await invalidate("map:")
+    await invalidate("note:")
+    await close_redis()
     await engine.dispose()
     print(f"seeded {len(LANDMARKS)} landmarks and {len(SEED_NOTES)} notes")
 

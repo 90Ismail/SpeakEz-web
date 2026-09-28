@@ -55,6 +55,8 @@ recordings/
 *.mp3
 *.flac
 *.ogg
+# Generated TTS seed audio is demo content, not a user recording
+!api/seed_audio/*.mp3
 
 # ── Downloaded datasets (Reddit posts etc. stay local) ──
 datasets/

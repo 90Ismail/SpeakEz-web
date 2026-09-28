@@ -9,9 +9,10 @@ export type WordTiming = {
   word: string;
   start: number;
   end: number;
+  paragraph?: number;
 };
 
-/** Paragraph timings derived from Parakeet word timestamps; falls back to proportional split. */
+/** Paragraph timings derived from word timestamps; falls back to a proportional split. */
 export function buildWordTimings(
   body: string[],
   words: WordTiming[],
@@ -19,6 +20,20 @@ export function buildWordTimings(
 ): ParagraphTiming[] {
   if (body.length === 0) return [];
   if (words.length === 0) return buildTimings(body, durationSec);
+  if (words.some((word) => word.paragraph !== undefined)) {
+    const timings: ParagraphTiming[] = [];
+    body.forEach((text, index) => {
+      const owned = words.filter((word) => word.paragraph === index);
+      if (owned.length === 0) return;
+      timings.push({
+        index,
+        startSec: owned[0].start,
+        endSec: owned[owned.length - 1].end,
+        text,
+      });
+    });
+    return timings;
+  }
   const timings: ParagraphTiming[] = [];
   let cursor = 0;
   body.forEach((text, index) => {

@@ -37,6 +37,7 @@ class WordOut(BaseModel):
     word: str
     start: float
     end: float
+    paragraph: int | None = None
 
 
 class UnlockResponse(BaseModel):
