@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The conflict guard. Fails a PR the moment its branch no longer merges cleanly
+  # into the base, so conflicts surface at push time instead of at merge time.
+  conflict-check:
+    name: Branch merges cleanly into base
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Try a test merge against ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git config user.email "ci@speakez.local"
+          git config user.name "SpeakEz CI"
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          if git merge --no-commit --no-ff "origin/${{ github.base_ref }}"; then
+            git merge --abort || true
+            echo "Clean merge: this branch merges cleanly into ${{ github.base_ref }}."
+          else
+            git merge --abort || true
+            echo "::error title=Merge conflict::This branch conflicts with ${{ github.base_ref }}. Merge ${{ github.base_ref }} into it (or rebase) and push again."
+            exit 1
+          fi
+
+  api:
+    name: API tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: api/pyproject.toml
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Run pytest
+        run: pytest -q
+
+  app:
+    name: App typecheck + tokens
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: No raw hex outside theme
+        run: npm run audit:colors
