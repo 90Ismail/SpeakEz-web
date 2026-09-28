@@ -22,3 +22,8 @@ def test_default_secret_allowed_in_demo_mode(field, default):
 
 def test_real_secrets_start_outside_demo_mode():
     assert settings().demo_mode is False
+
+
+def test_demo_mode_is_off_by_default(monkeypatch):
+    monkeypatch.delenv("DEMO_MODE", raising=False)
+    assert Settings(_env_file=None, jwt_secret="real-secret", email_pepper="real-pepper").demo_mode is False

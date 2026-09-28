@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     allowed_email_domain: str = "umn.edu"
     resend_api_key: str = ""
     unlock_radius_m: int = 150
-    demo_mode: bool = True
+    demo_mode: bool = False  # compose and .env.example turn it on for the demo
 
     # Display-time zone for day labels ("this evening"). Campus is Central.
     display_timezone: str = "America/Chicago"
