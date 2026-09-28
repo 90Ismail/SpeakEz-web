@@ -2,7 +2,8 @@
 
 The note must be the caller's, must be "draft" (only the worker's safety check sets that), and any
 edited title must pass the same lexicon; a held or blocked title holds or blocks the whole note.
-Publishing only schedules publish_at; the scheduled job flips "draft" to "live" once it passes.
+Publishing only schedules publish_at; release_due_notes (the worker's every-minute cron job) flips
+"draft" to "live" once it passes.
 """
 
 import secrets
@@ -11,9 +12,11 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..cache import invalidate
 from ..config import get_settings
 from ..repositories import notes as notes_repo
 from . import safety
+from .notes import MAP_CACHE_PREFIX
 
 # A random delay so the moment a note appears can't be matched to when someone walked away.
 MIN_DELAY_MINUTES = 5
@@ -73,3 +76,17 @@ async def publish_note(
         "status": "draft",
         "live_within_minutes": 0 if demo_mode else MAX_DELAY_MINUTES,
     }
+
+
+async def release_due_notes(session: AsyncSession) -> int:
+    """Flip every due, safety-passed draft to "live". Run every minute by the worker's cron job.
+
+    Returns how many notes went live; the /map cache is cleared only when something changed.
+    """
+    released = await notes_repo.release_due(
+        session, datetime.now(timezone.utc), safety.log_layer("transcript")
+    )
+    await session.commit()
+    if released:
+        await invalidate(MAP_CACHE_PREFIX)
+    return len(released)

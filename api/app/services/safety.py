@@ -167,6 +167,13 @@ def check_transcript(text: str) -> SafetyVerdict:
     return SafetyVerdict(CLEAN_DECISION, None, LAYER, lexicon.version)
 
 
+def log_layer(source: str) -> str:
+    """The moderation_log layer for a check of `source`: "lexicon.transcript" or "lexicon.title"."""
+    if source not in SOURCES:
+        raise ValueError(f"source must be one of {SOURCES}")
+    return f"{LAYER}.{source}"
+
+
 async def record_verdict(
     session: "AsyncSession", note_id: uuid.UUID, verdict: SafetyVerdict, source: str = "transcript"
 ) -> None:
@@ -176,14 +183,11 @@ async def record_verdict(
     "lexicon.title". Only note_id, layer, label and decision are stored: never the text itself,
     author, email or position. The caller commits.
     """
-    if source not in SOURCES:
-        raise ValueError(f"source must be one of {SOURCES}")
+    layer = log_layer(source)
     # Imported here so importing check_transcript never pulls in the database layer.
     from ..repositories import moderation as moderation_repo
 
-    await moderation_repo.insert_log(
-        session, note_id, f"{verdict.layer}.{source}", verdict.label, verdict.decision
-    )
+    await moderation_repo.insert_log(session, note_id, layer, verdict.label, verdict.decision)
 
 
 class NoteNotProcessing(Exception):

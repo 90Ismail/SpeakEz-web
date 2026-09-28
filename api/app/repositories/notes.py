@@ -3,10 +3,10 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from geoalchemy2 import Geography, Geometry
-from sqlalchemy import Row, cast, func, select, update
+from sqlalchemy import Row, cast, exists, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Landmark, Note
+from ..models import Landmark, ModerationLog, Note
 
 Bbox = tuple[float, float, float, float]
 
@@ -96,3 +96,22 @@ async def landmark_distance_m(session: AsyncSession, a: str, b: str) -> float:
         .where(first.c.id == a, second.c.id == b)
     )
     return float((await session.execute(stmt)).scalar_one())
+
+
+async def release_due(
+    session: AsyncSession, now: datetime, transcript_layer: str
+) -> list[uuid.UUID]:
+    """Flip due drafts to "live" and return their ids. A note only goes live if it is still a
+    draft, its publish_at has passed, and its transcript has a clean ("draft") safety verdict."""
+    passed_safety = exists().where(
+        ModerationLog.note_id == Note.id,
+        ModerationLog.layer == transcript_layer,
+        ModerationLog.decision == "draft",
+    )
+    stmt = (
+        update(Note)
+        .where(Note.status == "draft", Note.publish_at <= now, passed_safety)
+        .values(status="live")
+        .returning(Note.id)
+    )
+    return list((await session.execute(stmt)).scalars())
