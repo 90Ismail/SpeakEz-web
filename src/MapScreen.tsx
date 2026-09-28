@@ -22,7 +22,12 @@ import { VoiceCard } from "./VoiceCard";
 import { ZONES } from "./zones";
 
 const TOP_FADE_OPACITIES = [1, 0.92, 0.8, 0.6, 0.4, 0.2];
-const MAP_PADDING = { top: 140, right: 8, bottom: 250, left: 8 };
+// Apple's legal label / Google's logo sit inside the bottom map padding. With no card open they
+// tuck into a thin strip just above the nav; with the voice card up they move above the card.
+const MAP_PADDING_SIDES = { top: 140, right: 8, left: 8 };
+const CARD_PADDING_BOTTOM = 250;
+const ATTRIBUTION_GAP = 4;
+const ATTRIBUTION_STRIP = 22;
 const BANK_NAMES = { east: "East Bank", west: "West Bank" } as const;
 
 /** "3 voices nearby"; when none are within a short walk, count the whole campus instead of saying "No". */
@@ -134,6 +139,14 @@ export function MapScreen() {
     selectedNote && userPosition ? haversineMeters(userPosition, selectedNote.coordinate) : null;
 
   const usesGoogle = Platform.OS === "android" || USE_GOOGLE_ON_IOS;
+  const navTop = insets.bottom + space.sm + NAV_HEIGHT;
+  const mapPadding = useMemo(
+    () => ({
+      ...MAP_PADDING_SIDES,
+      bottom: selectedNote ? CARD_PADDING_BOTTOM : navTop + ATTRIBUTION_GAP,
+    }),
+    [selectedNote, navTop],
+  );
 
   function handleSelect(noteId: string) {
     pinPressAt.current = Date.now();
@@ -155,7 +168,7 @@ export function MapScreen() {
         mapType={usesGoogle ? "standard" : "mutedStandard"}
         customMapStyle={usesGoogle ? googleMapStyle(mode) : undefined}
         showsPointsOfInterests={!usesGoogle}
-        mapPadding={MAP_PADDING}
+        mapPadding={mapPadding}
         onPress={handleMapPress}
         onLongPress={(event) => setFakePosition(event.nativeEvent.coordinate)}
         onRegionChangeComplete={(region) => loadNotes(boundsFromRegion(region))}
@@ -269,7 +282,7 @@ export function MapScreen() {
             400,
           );
         }}
-        style={[styles.recenter, { bottom: insets.bottom + space.sm + NAV_HEIGHT + space.md }]}
+        style={[styles.recenter, { bottom: navTop + ATTRIBUTION_GAP + ATTRIBUTION_STRIP + space.sm }]}
       />
 
       <View style={[styles.navWrap, { bottom: insets.bottom + space.sm }]} pointerEvents="box-none">
