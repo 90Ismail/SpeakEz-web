@@ -5,6 +5,10 @@ import { Waveform } from "./Waveform";
 import { RecordControls, type RecordPrimaryMode } from "./RecordControls";
 
 type RecordCaptureStageProps = {
+  /** Big line above the waveform. Defaults to the open invitation; a prompt or reply replaces it. */
+  headline?: string;
+  /** Replaces the "Near {place}" chip, e.g. "Today's prompt · private" or "Replying at Walter Library". */
+  context?: { icon: keyof typeof Ionicons.glyphMap; label: string };
   landmarkName: string;
   elapsedSec: number;
   maxSec: number;
@@ -39,6 +43,8 @@ export function RecordCaptureStage({
   onRestart,
   onDone,
   primaryLabel,
+  headline = "Say the thing you haven\u2019t said out loud.",
+  context,
 }: RecordCaptureStageProps) {
   const theme = useTheme();
   const chipLabel = isRecording
@@ -58,13 +64,13 @@ export function RecordCaptureStage({
   return (
     <View style={styles.root}>
       <View style={[styles.chip, { borderColor: theme.controlLine }]}>
-        <Ionicons name="location-outline" size={14} color={theme.ink2} />
+        <Ionicons name={context?.icon ?? "location-outline"} size={14} color={theme.ink2} />
         <Text style={[styles.chipLabel, { color: theme.ink2 }]} numberOfLines={1}>
-          {chipLabel}
+          {context?.label ?? chipLabel}
         </Text>
       </View>
 
-      <Text style={[styles.prompt, { color: theme.ink }]}>Say the thing you haven&apos;t said out loud.</Text>
+      <Text style={[styles.prompt, { color: theme.ink }]}>{headline}</Text>
 
       <View style={styles.live}>
         <Waveform progress={progress} seed={7} barCount={40} height={72} style={styles.waveform} />

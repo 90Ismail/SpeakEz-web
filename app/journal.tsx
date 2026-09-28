@@ -7,6 +7,7 @@ import { FloatingNav, NAV_HEIGHT } from "../src/components/FloatingNav";
 import { formatDuration } from "../src/components/ListRow";
 import { TopBar } from "../src/components/TopBar";
 import { NOTE_KIND_ORDER, NOTE_KINDS, type NoteKind } from "../src/noteKinds";
+import { useTodayPrompt } from "../src/prompts";
 import { seedNoteById } from "../src/seedNotes";
 import { pressed as pressedOpacity, radius, space, textStyle, useTheme } from "../src/theme";
 
@@ -121,6 +122,49 @@ function SectionCard({ kind }: { kind: NoteKind }) {
   );
 }
 
+/**
+ * Today's prompt. Answers are private: they go straight into the voice journal and
+ * can never be posted on the map (the API enforces this too).
+ */
+function DailyPromptCard() {
+  const theme = useTheme();
+  const router = useRouter();
+  const prompt = useTodayPrompt();
+  return (
+    <View style={[styles.promptCard, { backgroundColor: theme.accentSoft, borderColor: theme.accentLine }]}>
+      <View style={styles.promptEyebrow}>
+        <Ionicons name="sunny-outline" size={14} color={theme.accentText} />
+        <Text style={[styles.promptEyebrowLabel, { color: theme.accentText }]}>TODAY'S PROMPT</Text>
+      </View>
+      <Text style={[styles.promptText, { color: theme.ink }]}>{prompt.text}</Text>
+      <View style={styles.promptFooter}>
+        <Pressable
+          onPress={() =>
+            router.push({
+              pathname: "/record",
+              params: { prompt: prompt.text, ...(prompt.id !== null ? { promptId: String(prompt.id) } : {}) },
+            })
+          }
+          accessibilityRole="button"
+          accessibilityLabel={`Answer today's prompt: ${prompt.text}`}
+          accessibilityHint="Records a private answer for your voice journal"
+          style={({ pressed }) => [
+            styles.promptButton,
+            { backgroundColor: theme.ink, opacity: pressed ? pressedOpacity.soft : 1 },
+          ]}
+        >
+          <Ionicons name="mic" size={15} color={theme.surface} />
+          <Text style={[styles.promptButtonLabel, { color: theme.surface }]}>Answer</Text>
+        </Pressable>
+        <View style={styles.promptPrivacy}>
+          <Ionicons name={NOTE_KINDS.journal.icon} size={13} color={theme.ink2} />
+          <Text style={[styles.promptPrivacyLabel, { color: theme.ink2 }]}>Private · saves to your journal</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function JournalScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -139,6 +183,7 @@ export default function JournalScreen() {
           <Text style={[styles.screenTitle, { color: theme.ink }]}>Journal</Text>
           <Text style={[styles.screenSub, { color: theme.ink2 }]}>Everything you've recorded.</Text>
         </View>
+        <DailyPromptCard />
         {NOTE_KIND_ORDER.map((kind) => (
           <SectionCard key={kind} kind={kind} />
         ))}
@@ -169,6 +214,49 @@ const styles = StyleSheet.create({
   },
   screenSub: {
     ...textStyle.body,
+  },
+  promptCard: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: space.md,
+    gap: 10,
+  },
+  promptEyebrow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  promptEyebrowLabel: {
+    ...textStyle.caps,
+  },
+  promptText: {
+    ...textStyle.titleSerif,
+  },
+  promptFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 4,
+  },
+  promptButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: radius.pill,
+  },
+  promptButtonLabel: {
+    ...textStyle.bodyStrong,
+  },
+  promptPrivacy: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  promptPrivacyLabel: {
+    ...textStyle.support,
   },
   card: {
     borderWidth: 1,

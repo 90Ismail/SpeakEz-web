@@ -117,7 +117,11 @@ export function VoiceCard({ note, distance, onOpen }: VoiceCardProps) {
         {unlocked ? (
           <>
             <Text style={[styles.meta, { color: theme.ink3 }]}>
-              {`Anonymous student  ·  ${minutes} min listen  ·  Left ${rendered.dayLabel}`}
+              {`Anonymous student  ·  ${minutes} min listen  ·  Left ${rendered.dayLabel}${
+                (rendered.replyCount ?? 0) > 0
+                  ? `  ·  ${rendered.replyCount} ${rendered.replyCount === 1 ? "reply" : "replies"}`
+                  : ""
+              }`}
             </Text>
 
             <View style={styles.player}>

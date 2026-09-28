@@ -43,6 +43,8 @@ type RecordReviewStageProps = {
   /** Journal notes save privately; drafts only offer "keep"; public notes are left at a place. */
   onSaveJournal: () => void;
   kind: NoteKind;
+  /** A voice reply: always public, at the original post's place, no draft option. */
+  isReply?: boolean;
   topInset: number;
   bottomInset: number;
 };
@@ -71,12 +73,15 @@ export function RecordReviewStage({
   onKeepDraft,
   onSaveJournal,
   kind,
+  isReply = false,
   topInset,
   bottomInset,
 }: RecordReviewStageProps) {
   const theme = useTheme();
   const primary: { label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void } =
-    kind === "public"
+    isReply
+      ? { label: `Post reply at ${landmarkName}`, icon: "chatbubble-outline", onPress: onPublish }
+      : kind === "public"
       ? { label: `Post at ${landmarkName}`, icon: "location-outline", onPress: onPublish }
       : kind === "journal"
         ? { label: "Save to journal", icon: "lock-closed-outline", onPress: onSaveJournal }
@@ -246,7 +251,7 @@ export function RecordReviewStage({
           <Ionicons name={primary.icon} size={16} color={theme.surface} />
           <Text style={[styles.publishLabel, { color: theme.surface }]}>{primary.label}</Text>
         </Pressable>
-        {kind === "draft" ? null : (
+        {kind === "draft" || isReply ? null : (
           <Pressable
             onPress={onKeepDraft}
             accessibilityRole="button"
