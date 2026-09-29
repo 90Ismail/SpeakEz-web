@@ -19,6 +19,10 @@ cd dist && npx vercel --prod --yes                                            # 
 
 `build-web.sh` sets `EXPO_PUBLIC_API_URL=https://api.204-48-19-46.sslip.io` and a demo location near Coffman Union so notes unlock.
 
+## Audio (web)
+
+`public/web-shim.js` is loaded before the app. It (1) fills `audio_url`, word timings and durations from `public/voices/manifest.json` when the API returns a seeded note or reply without audio, never overriding real API audio, and (2) fixes recording upload: the phone app appends `{uri,name,type}` to `FormData`, which browsers turn into "[object Object]", so the shim swaps in the real recorded file (webm/ogg is converted to 16 kHz mono WAV). Run the tests with `web-tests/run.sh`.
+
 ## Gotchas
 
 - Vercel drops any folder named `node_modules`, so the script renames `dist/assets/node_modules` to `dist/assets/nm`.
