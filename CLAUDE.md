@@ -1,6 +1,6 @@
 # speakEz web (fork of the phone app)
 
-This fork adds a browser build of speakEz on top of the phone app. The phone app is Abdullahi Abdi's repo (`Mulla759/SpeakEz`, `main`). This fork (`90Ismail/SpeakEz`, branch `web-demo`) only adds the web layer.
+This fork adds a browser build of speakEz on top of the phone app. The phone app is Abdullahi Abdi's repo (`Mulla759/SpeakEz`, `main`). This fork (`90Ismail/SpeakEz-web`, branch `web-demo`) only adds the web layer.
 
 ## Rules for Claude
 
