@@ -1,0 +1,29 @@
+Web-only, applied by build-web.sh and reverted after the build.
+On web, expo-audio's forDuration timer calls stop() a second time, and web stop() throws once the
+recorder has stopped, so a take that hits the 3-minute cap can be lost. The record screen's own
+interval already stops at MAX_SECONDS, so the web build records without forDuration.
+
+diff --git a/app/record.tsx b/app/record.tsx
+index c2b92cf..b93976a 100644
+--- a/app/record.tsx
++++ b/app/record.tsx
+@@ -9,7 +9,7 @@ import {
+ import * as Location from "expo-location";
+ import { useLocalSearchParams, useRouter } from "expo-router";
+ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+-import { AppState, StyleSheet, View } from "react-native";
++import { AppState, Platform, StyleSheet, View } from "react-native";
+ import { useSafeAreaInsets } from "react-native-safe-area-context";
+ import { RecordCaptureStage } from "../src/components/RecordCaptureStage";
+ import { noteKindOf, RecordPlaceStage, type PlaceChoice } from "../src/components/RecordPlaceStage";
+@@ -276,7 +276,9 @@ export default function RecordScreen() {
+       }
+       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+       await recorder.prepareToRecordAsync();
+-      recorder.record({ forDuration: MAX_SECONDS });
++      // Web: expo-audio's forDuration timer calls stop() a second time, which throws there and can
++      // lose the recording at the cap. The interval below already stops at MAX_SECONDS.
++      recorder.record(Platform.OS === "web" ? undefined : { forDuration: MAX_SECONDS });
+       setRecording(true);
+     } catch {
+       recorderFailedRef.current = true;
