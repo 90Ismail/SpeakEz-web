@@ -6,8 +6,8 @@ This fork adds a browser build of speakEz on top of the phone app. The phone app
 
 - **Take the API structure from the phone app.** The backend lives in `api/` (FastAPI, routes in `api/app/routes`, schemas in `api/app/schemas.py`, models in `api/app/models.py`). Do not redesign endpoints or payloads for the web. The web client uses the same calls as the phone app through `src/api` and `src/config.ts`.
 - **The database is still on the VPS.** PostgreSQL + PostGIS and Redis run on the DigitalOcean droplet (204.48.19.46), not locally and not in this repo. The live API is https://api.204-48-19-46.sslip.io (`DEMO_MODE=true`, seeded demo data). Never point the web build at a local database, never edit the DB by hand, and put every schema change in an Alembic migration.
-- Keep phone-app behavior unchanged. Web-only code lives in `web-stubs/`, `web-head.html`, `web-body.html`, `public/`, `metro.config.js` and `build-web.sh`.
-- The web build is light mode only (`src/theme.ts`, `app.json`).
+- Keep phone-app behavior unchanged. Web-only code lives in `web-stubs/`, `web-patches/`, `web-head.html`, `web-body.html`, `public/`, `metro.config.js` and `build-web.sh`.
+- Do not edit the phone app's files (`app/`, `src/`, `api/`, `app.json`). The web build reuses all of them as-is. The only tweak, forcing light mode, is `web-patches/light-theme.patch`, which `build-web.sh` applies for the build and reverts afterward.
 
 ## Build and deploy the web app
 

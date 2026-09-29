@@ -2,6 +2,9 @@
 # Build the speakEz web app into dist/ (run from the repo root after `npm i --no-save react-native-web react-dom@19.2.3 maplibre-gl@4.7.1`).
 set -e
 export EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-https://api.204-48-19-46.sslip.io}" EXPO_PUBLIC_DEMO_LAT=44.97510 EXPO_PUBLIC_DEMO_LNG=-93.23580 EXPO_OFFLINE=1 CI=1
+# Web-only patches are applied for the build and reverted after, so the shared app source is never changed.
+git apply web-patches/light-theme.patch
+trap 'git apply -R web-patches/light-theme.patch' EXIT
 rm -rf dist
 npx expo export -p web -c
 python3 - <<'PY'
