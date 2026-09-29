@@ -3,8 +3,8 @@
 set -e
 export EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-https://api.165-22-180-184.sslip.io}" EXPO_PUBLIC_DEMO_LAT=44.97510 EXPO_PUBLIC_DEMO_LNG=-93.23580 EXPO_OFFLINE=1 CI=1
 # Web-only patches are applied for the build and reverted after, so the shared app source is never changed.
-# light-theme forces light mode; web-record-cap keeps a take that hits the 3-minute cap (see its header).
-PATCHES=(web-patches/light-theme.patch web-patches/web-record-cap.patch)
+# Web-only fixes, each explained in its header: light theme, 3-minute cap, record button presses, map refresh.
+PATCHES=(web-patches/light-theme.patch web-patches/web-record-cap.patch web-patches/web-record-press.patch web-patches/web-map-refresh.patch)
 git apply "${PATCHES[@]}"
 trap 'git apply -R "${PATCHES[@]}"' EXIT
 rm -rf dist

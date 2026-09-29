@@ -1,0 +1,35 @@
+Web-only, applied by build-web.sh and reverted after the build.
+A just-published note goes live on the worker's next cron tick (up to a minute), after the map has
+already fetched, so it only showed up after a reload or a pan. The web map now polls its view every
+15 s and updates only when the set of notes changed.
+
+diff --git a/src/MapScreen.tsx b/src/MapScreen.tsx
+index a5ed240..b23676f 100644
+--- a/src/MapScreen.tsx
++++ b/src/MapScreen.tsx
+@@ -102,6 +102,25 @@ export function MapScreen() {
+     };
+   }, [loadNotes]);
+ 
++  // Web demo: a just-published note goes live on the worker's next cron tick (up to a minute),
++  // after this screen has fetched, so poll the view and update only when the set of notes changed.
++  useEffect(() => {
++    if (Platform.OS !== "web") return undefined;
++    const id = setInterval(() => {
++      const seq = requestSeq.current;
++      fetchMapNotes(viewBounds)
++        .then((next) => {
++          if (seq !== requestSeq.current) return;
++          setNotes((prev) => {
++            const ids = new Set(prev.map((note) => note.id));
++            return prev.length === next.length && next.every((note) => ids.has(note.id)) ? prev : next;
++          });
++        })
++        .catch(() => {});
++    }, 15_000);
++    return () => clearInterval(id);
++  }, [viewBounds]);
++
+   useEffect(() => {
+     let subscription: Location.LocationSubscription | null = null;
+     let cancelled = false;

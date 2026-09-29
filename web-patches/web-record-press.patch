@@ -1,0 +1,73 @@
+Web-only, applied by build-web.sh after web-record-cap.patch and reverted after the build.
+react-native-web fires onPress only from a DOM click. A press whose target is swapped mid-press (stop
+square -> Continue disc) or a long touch hold gets no click, so the flag left by that press ate the next
+tap and the first Continue did nothing. Each press now starts with clean flags, a quick tap no longer
+opens two MediaRecorders, and a held touch on Android is no longer cut off by contextmenu (~0.45 s).
+
+diff --git a/app/record.tsx b/app/record.tsx
+index b93976a..6377f71 100644
+--- a/app/record.tsx
++++ b/app/record.tsx
+@@ -166,6 +166,7 @@ export default function RecordScreen() {
+   const justArmedRef = useRef(false);
+   const swallowPressRef = useRef(false);
+   const pressStartRef = useRef(0);
++  const startingRef = useRef(false);
+   const noteIdRef = useRef<string | null>(null);
+   const uploadInFlightRef = useRef(false);
+ 
+@@ -258,7 +259,10 @@ export default function RecordScreen() {
+   }, [recorder, setRecording]);
+ 
+   const startRecording = useCallback(async () => {
+-    if (isRecordingRef.current) return;
++    // Web: a quick tap calls this from onPressIn and again from onPress before recording starts,
++    // and a second call opens a second MediaRecorder and orphans the first (the mic stays on).
++    if (isRecordingRef.current || startingRef.current) return;
++    startingRef.current = true;
+     setRecordedUri(null);
+     noteIdRef.current = null;
+     setUploadPhase("uploading");
+@@ -283,6 +287,8 @@ export default function RecordScreen() {
+     } catch {
+       recorderFailedRef.current = true;
+       setRecording(true);
++    } finally {
++      startingRef.current = false;
+     }
+   }, [recorder, setRecording, updateElapsed]);
+ 
+@@ -309,6 +315,11 @@ export default function RecordScreen() {
+   }, [isPromptAnswer, isReply]);
+ 
+   const onPrimaryPressIn = useCallback(() => {
++    // Web: react-native-web fires onPress only from a DOM click, and a press whose target is swapped
++    // mid-press (stop square -> Continue disc) or a long touch hold gets none, so flags left by the
++    // last press ate this one (the first Continue tap did nothing). Each press starts clean.
++    swallowPressRef.current = false;
++    justArmedRef.current = false;
+     if (isRecordingRef.current) {
+       swallowPressRef.current = true;
+       void finishRecording();
+diff --git a/src/components/RecordControls.tsx b/src/components/RecordControls.tsx
+index ccb8472..f646ca3 100644
+--- a/src/components/RecordControls.tsx
++++ b/src/components/RecordControls.tsx
+@@ -1,5 +1,5 @@
+ import { Ionicons } from "@expo/vector-icons";
+-import { Pressable, StyleSheet, Text, View } from "react-native";
++import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+ import { pressed as pressedOpacity, radius, space, textStyle, useTheme } from "../theme";
+ 
+ export type RecordPrimaryMode = "record" | "stop" | "continue";
+@@ -69,6 +69,10 @@ export function RecordControls({
+           onPressIn={onPrimaryPressIn}
+           onPressOut={onPrimaryPressOut}
+           onPress={onPrimaryPress}
++          // Web: with onLongPress set, react-native-web doesn't end a held touch on Android's
++          // contextmenu (which cut holds off at ~0.45 s); the huge delay means it never fires.
++          onLongPress={Platform.OS === "web" ? () => {} : undefined}
++          delayLongPress={Platform.OS === "web" ? 3_600_000 : undefined}
+           disabled={primaryDisabled}
+           accessibilityRole="button"
+           accessibilityLabel={primaryLabel}
